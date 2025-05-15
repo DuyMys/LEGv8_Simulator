@@ -1,6 +1,6 @@
-package legv8.util;
+package core.alu;
 
-public class ALUDemo {
+public class ALUdemo {
     public static void main(String[] args) {
         ALU alu = new ALU();
         ALUResult result = alu.compute(ALUOperation.SUB, 5, 3);
@@ -9,3 +9,4 @@ public class ALUDemo {
         System.out.println(result);  // Sẽ in theo định dạng toString() trong ALUResult
     }
 }
+ 

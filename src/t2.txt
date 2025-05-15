@@ -1,0 +1,41 @@
+LEGv8Simulator/
+├── src/
+│   └── main/
+│       ├── java/
+│       │   └── legv8/
+│       │       ├── Main.java
+│       │       ├── Simulator.java
+│       │       ├── core/
+│       │       │   ├── CPU.java
+│       │       │   ├── Registers.java
+│       │       │   ├── ProgramCounter.java
+│       │       │   ├── Flags.java
+│       │       │   └── ALU.java
+│       │       ├── memory/
+│       │       │   └── Memory.java
+│       │       ├── instruction/
+│       │       │   ├── Instruction.java
+│       │       │   ├── InstructionFormat.java
+│       │       │   ├── InstructionDefinition.java
+│       │       │   ├── InstructionFactory.java
+│       │       │   ├── types/
+│       │       │   │   ├── RFormatInstruction.java
+│       │       │   │   ├── IFormatInstruction.java
+│       │       │   │   └── ...
+│       │       ├── execution/
+│       │       │   ├── InstructionExecutor.java
+│       │       │   ├── RFormatExecutor.java
+│       │       │   └── ...
+│       │       ├── io/
+│       │       │   ├── InputReader.java
+│       │       │   └── OutputFormatter.java
+│       │       ├── util/
+│       │       │   ├── BitUtils.java
+│       │       │   └── Constants.java
+│       │       └── exceptions/
+│       │           └── SimulatorException.java
+│       └── resources/
+│           ├── examples/
+│           ├── config/
+│           └── ...
+└── README.md

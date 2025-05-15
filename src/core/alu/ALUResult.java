@@ -2,7 +2,7 @@
  * @author TrinhHien, DuyMy
  * @version 1.0 
  */
-package legv8.core.alu;
+package core.alu;
 
 /**
  * ALUResult represents the result of an Arithmetic Logic Unit (ALU) operation.

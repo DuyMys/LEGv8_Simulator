@@ -2,7 +2,7 @@
  * @author TrinhHien, DuyMy
  * @version 1.0 
  */
-package legv8.core.alu;
+package core.alu;
 
 /**
  * Enum represents the operations that Alu can do it.
