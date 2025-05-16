@@ -32,6 +32,9 @@ LEGv8Simulator/
 │       │       ├── util/
 │       │       │   ├── BitUtils.java
 │       │       │   └── Constants.java
+│       │       │   └── ColoredLog.java
+│       │       │   └── StringUtils.java
+│       │       │   └── Validator.java
 │       │       └── exceptions/
 │       │           └── SimulatorException.java
 │       └── resources/
