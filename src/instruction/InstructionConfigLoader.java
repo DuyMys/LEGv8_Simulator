@@ -175,19 +175,13 @@ public class InstructionConfigLoader {
                 System.out.printf("%sInstruction configuration loaded. %d unique mnemonics, %d opcode/format definitions.\n", 
                                                             ColoredLog.SUCCESS, mnemonicMap.size(), countTotalDefinitions());
 
-                System.out.println("--- Loaded Instruction Definitions ---");
-
                 detailedDefinitionMap.forEach((opcodeId, formatMap) -> {
                     System.out.printf("  Opcode ID %d: ", opcodeId);
                     formatMap.forEach((format, def) -> System.out.printf("%s (%s) ", def.getMnemonic(), format));
                     System.out.println();
                 });
 
-                System.out.println("-------------------------------------");
-
-                System.out.println("--- Loaded Mnemonics ---");
                 mnemonicMap.forEach((mnemonic, def) -> System.out.printf("  '%s' -> %s\n", mnemonic, def.getMnemonic()));
-                System.out.println("-----------------------");
 
                 return true;
             } 
