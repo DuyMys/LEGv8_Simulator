@@ -1,15 +1,15 @@
 package instruction;
 
 import java.util.BitSet;
-import util.ColoredLog;
-
 
 /**
- * RFormatInstruction represents an R-format instruction in the LEGv8 architecture.
- * It extends the Instruction class and provides specific handling for R-format instructions.
+ * RFormatInstruction is a class that represents a register format instruction in the LEGv8 architecture.
+ * It extends the Instruction class and provides methods to disassemble the instruction and extract its components.
  */
 public class RFormatInstruction extends Instruction {
+    private final int rd, rn, rm, shamt;
 
+    // --- Constructor ---
     /**
      * Constructor for RFormatInstruction.
      * @param bytecode The bytecode of the instruction as a BitSet.
@@ -17,37 +17,33 @@ public class RFormatInstruction extends Instruction {
      */
     public RFormatInstruction(BitSet bytecode, InstructionDefinition definition) {
         super(bytecode, definition);
-        if (definition.getFormat() != 'R') {
-            throw new IllegalArgumentException(ColoredLog.WARNING + "InstructionDefinition must be of R-format for RFormatInstruction.");
-        }
+        this.rm = getRm_R();
+        this.shamt = getShamt_R();
+        this.rn = getRn_R();
+        this.rd = getRd_R();
     }
 
+    // --- Instruction Methods ---
     /**
-     * Disassembles the R-format instruction into a human-readable assembly string.
-     * @return The disassembled instruction as a string.
+     * @return The instruction as assembled string.
+     *         The string is formatted as "mnemonic Xn, Xm, Xn" or "mnemonic Xn, Xn, #immediate".
      */
     @Override
     public String disassemble() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(definition.getMnemonic()).append(" ");
+        String mnemonic = definition.getMnemonic();
+        
+        switch (mnemonic) {
+            case "LSL", "LSR", "ASR":
+                return String.format("%-6s X%d, X%d, #%d", mnemonic, rd, rn, shamt);
 
-        // Get register fields
-        int rd = getRd_R();  // Destination register (bits 0-4)
-        int rn = getRn_R();  // First source register (bits 5-9)
-        int rm = getRm_R();  // Second source register (bits 16-20)
-        int shamt = getShamt_R(); // Shift amount (bits 10-15, used in LSL/LSR)
+            case "BR": 
+                return String.format("%-6s X%d", mnemonic, rn);
+     
+            case "ADD", "ADDS", "SUB", "SUBS", "AND", "ANDS", "ORR", "EOR", "MUL", "SMULH", "UMULH", "SDIV", "UDIV": 
+                return String.format("%-6s X%d, X%d, X%d", mnemonic, rd, rn, rm);
 
-        // Format registers as X0, X1, etc.
-        sb.append("X").append(rd).append(", ");
-        sb.append("X").append(rn);
-
-        // For instructions like LSL/LSR, include shamt; otherwise, include Rm
-        if (definition.getMnemonic().equals("LSL") || definition.getMnemonic().equals("LSR")) {
-            sb.append(", #").append(shamt);
-        } else {
-            sb.append(", X").append(rm);
+            default:
+                return String.format("%-6s X%d, X%d, X%d ; (shamt=%d)", mnemonic, rd, rn, rm, shamt);
         }
-
-        return sb.toString();
     }
 }

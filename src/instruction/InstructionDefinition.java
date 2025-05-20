@@ -1,90 +1,66 @@
 package instruction;
-
-import util.ColoredLog;
 import util.ControlSignals;
 
+import java.util.Objects;
+import java.util.BitSet;
+
 /**
- * InstructionDefinition is a class that represents the definition of an instruction in the LEGv8 architecture.
- * It contains information about the instruction's mnemonic, format, opcode identifier string, and control signals.
+ * Represents the definition of an instruction in the LEGv8 architecture.
  */
 public class InstructionDefinition {
-    // --- Fields ---
     private final String mnemonic;
-    private final char format; 
-    private final String opcodeIdentifierString; 
+    private final char format;
+    private final String opcodeId;
     private final ControlSignals controlSignals;
 
-    
-    // --- Constructor ---
-    
     /**
      * Constructor for InstructionDefinition.
-     * @param mnemonic The mnemonic of the instruction.
-     * @param format The format of the instruction (e.g., 'I', 'D', 'B', etc.).
-     * @param opcodeIdentifierString The opcode identifier string in binary format.
-     * @param controlSignals The control signals associated with the instruction.
+     * @param mnemonic The mnemonic of the instruction (e.g., "ADD", "MOVZ").
+     * @param format The format of the instruction (e.g., 'R', 'M').
+     * @param opcodeId The opcode ID as a binary string (e.g., "10001011000").
+     * @param controlSignals The control signals for the instruction.
      */
-    public InstructionDefinition(String mnemonic, char format, String opcodeIdentifierString, ControlSignals controlSignals) {
-        this.mnemonic = mnemonic;
+    public InstructionDefinition(String mnemonic, char format, String opcodeId, ControlSignals controlSignals) {
+        this.mnemonic = Objects.requireNonNull(mnemonic, "Mnemonic cannot be null.");
         this.format = format;
-        this.opcodeIdentifierString = opcodeIdentifierString;
-        this.controlSignals = controlSignals;    
+        this.opcodeId = Objects.requireNonNull(opcodeId, "Opcode ID cannot be null.");
+        this.controlSignals = Objects.requireNonNull(controlSignals, "Control signals cannot be null.");
     }
-    
 
-    // --- Getters ---
-
-    /**
-     * @return The mnemonic of the instruction.
-     */
     public String getMnemonic() {
         return mnemonic;
     }
 
-    /**
-     * @return The format of the instruction.
-     */
     public char getFormat() {
         return format;
     }
 
-    /**
-     * @return The opcode identifier string in binary format.
-     */
-    public String getOpcodeIdentifierString() {
-        return opcodeIdentifierString;
+    public String getOpcodeId() {
+        return opcodeId;
     }
 
-    /**
-     * @return The control signals associated with the instruction.
-     */
     public ControlSignals getControlSignals() {
         return controlSignals;
     }
 
     /**
-     * @return The opcode identifier value as an integer.
-     *         This is obtained by parsing the opcode identifier string as a binary number.
+     * Checks if the provided opcode matches this instruction's opcode.
+     * @param bytecode The instruction bytecode to check.
+     * @return True if the opcode matches, false otherwise.
      */
-    public int getOpcodeIdentifierValue() {
-        try {
-            return Integer.parseInt(opcodeIdentifierString, 2);
-        } catch (NumberFormatException e) {
-            System.err.println(ColoredLog.ERROR + "Error parsing opcode identifier string '" + opcodeIdentifierString + "' for " + mnemonic);
-            return -1;
+    public boolean matchesOpcode(BitSet bytecode) {
+        int opcodeLength = opcodeId.length();
+        int extractedOpcode = Instruction.extractBits(bytecode, 31 - opcodeLength + 1, 31);
+        String extractedOpcodeStr = Integer.toBinaryString(extractedOpcode);
+        while (extractedOpcodeStr.length() < opcodeLength) {
+            extractedOpcodeStr = "0" + extractedOpcodeStr;
         }
+        return opcodeId.equals(extractedOpcodeStr);
     }
-    
-    // --- Utility Methods ---
-    /**
-     * @return A string representation of the InstructionDefinition object.
-     *         This includes the mnemonic, format, opcode identifier string, and control signals.
-     */
+
     @Override
     public String toString() {
-        return String.format(
-            "InstructionDefinition [mnemonic=%-6s, format=%c, opcodeIdentifierString=%-11s, controlSignals={%s}]",
-            mnemonic, format, opcodeIdentifierString, controlSignals
-        );
+        return String.format("InstructionDefinition[mnemonic=%s, format=%c, opcodeId=%s, controlSignals=%s]",
+                mnemonic, format, opcodeId, controlSignals);
     }
 }
