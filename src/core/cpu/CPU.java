@@ -6,14 +6,15 @@ import instruction.InstructionFactory;
 import instruction.InstructionDefinition;
 import memory.Memory;
 import exceptions.InvalidInstructionException;
-import util.Constants;
-//import execution.RFormatExecutor;
-//import execution.InstructionExecutor;
+//import util.Constants;
+import execution.RFormatExecutor;
+import execution.InstructionExecutor;
 import java.util.BitSet;
-import core.alu.ALU;
+import core.alu.*;
 
 /**
- * Mô phỏng CPU LEGv8, điều phối các thành phần và thực thi vòng lặp Fetch-Decode-Execute.
+ * Mô phỏng CPU LEGv8, điều phối các thành phần và thực thi vòng lặp
+ * Fetch-Decode-Execute.
  */
 public class CPU {
     private Registers registers;
@@ -39,6 +40,7 @@ public class CPU {
 
     /**
      * Lấy đối tượng Registers.
+     * 
      * @return Registers instance.
      */
     public Registers getRegisters() {
@@ -47,6 +49,7 @@ public class CPU {
 
     /**
      * Lấy đối tượng ProgramCounter.
+     * 
      * @return ProgramCounter instance.
      */
     public ProgramCounter getProgramCounter() {
@@ -55,6 +58,7 @@ public class CPU {
 
     /**
      * Lấy đối tượng Flags.
+     * 
      * @return Flags instance.
      */
     public Flags getFlags() {
@@ -63,6 +67,7 @@ public class CPU {
 
     /**
      * Lấy đối tượng Memory.
+     * 
      * @return Memory instance.
      */
     public Memory getMemory() {
@@ -71,6 +76,7 @@ public class CPU {
 
     /**
      * Lấy đối tượng ALU.
+     * 
      * @return ALU instance.
      */
     public ALU getALU() {
@@ -79,6 +85,7 @@ public class CPU {
 
     /**
      * Chuyển đổi mã lệnh (int) thành BitSet.
+     * 
      * @param instructionCode Mã lệnh 32-bit.
      * @return BitSet biểu diễn mã lệnh.
      */
@@ -94,6 +101,7 @@ public class CPU {
 
     /**
      * Thực thi một chu kỳ Fetch-Decode-Execute.
+     * 
      * @throws InvalidInstructionException nếu lệnh không hợp lệ.
      */
     public void step() throws InvalidInstructionException {
@@ -120,22 +128,23 @@ public class CPU {
             case 'R':
                 executor = new RFormatExecutor();
                 break;
-            // TODO: Thêm các executor cho các format khác (I, D, B, CB, IM) khi bạn triển khai
+            // TODO: Thêm các executor cho các format khác (I, D, B, CB, IM) khi bạn triển
+            // khai
             // case 'I':
-            //     executor = new IFormatExecutor();
-            //     break;
+            // executor = new IFormatExecutor();
+            // break;
             // case 'D':
-            //     executor = new DFormatExecutor();
-            //     break;
+            // executor = new DFormatExecutor();
+            // break;
             // case 'B':
-            //     executor = new BFormatExecutor();
-            //     break;
-            //case 'CB':
-            //     executor = new CBFormatExecutor();
-            //     break;
+            // executor = new BFormatExecutor();
+            // break;
+            // case 'CB':
+            // executor = new CBFormatExecutor();
+            // break;
             // case 'IM':
-            //     executor = new IMFormatExecutor();
-            //     break;
+            // executor = new IMFormatExecutor();
+            // break;
             default:
                 throw new InvalidInstructionException("Định dạng lệnh không hỗ trợ: " + format);
         }
@@ -143,7 +152,7 @@ public class CPU {
 
         // Tăng PC (trừ khi lệnh là branch)
         // if (format != 'B' && format != 'CB') {
-        //     pc.advanceInstruction();
+        // pc.advanceInstruction();
         // }
 
         if (format != 'B') {
@@ -153,6 +162,7 @@ public class CPU {
 
     /**
      * Chạy toàn bộ chương trình cho đến khi dừng.
+     * 
      * @throws InvalidInstructionException nếu gặp lệnh không hợp lệ.
      */
     public void run() throws InvalidInstructionException {
@@ -181,6 +191,7 @@ public class CPU {
 
     /**
      * Trả về biểu diễn chuỗi của trạng thái CPU.
+     * 
      * @return Chuỗi chứa trạng thái PC, thanh ghi, và cờ.
      */
     @Override
