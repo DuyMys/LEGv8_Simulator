@@ -6,7 +6,7 @@ import exceptions.MemoryAccessException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.BitSet;
-import java.util.Scanner;
+//import java.util.Scanner;
 
 /**
  * Simulates a LEGv8 CPU, executing a list of instructions and displaying register values.
@@ -19,6 +19,12 @@ public class CPUSimulator {
     private final Memory memory;
     private final List<Instruction> program;
     private int pc;
+
+    // Thêm các cờ trạng thái
+    private boolean zeroFlag;
+    private boolean negativeFlag;
+    private boolean overflowFlag;
+    private boolean carryFlag;
 
     public CPUSimulator(InstructionConfigLoader configLoader) {
         this.factory = new InstructionFactory(configLoader);
@@ -83,6 +89,8 @@ public class CPUSimulator {
             if (signals.isRegWrite()) {
                 registerFile.writeRegister(rInst.getRd_R(), result.result, true);
             }
+            // Cập nhật cờ trạng thái
+            updateFlags(result);
             System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), rInst.getRd_R(), result.result);
         } else if (instruction instanceof IMFormatInstruction) {
             IMFormatInstruction imInst = (IMFormatInstruction) instruction;
@@ -92,6 +100,8 @@ public class CPUSimulator {
             if (signals.isRegWrite()) {
                 registerFile.writeRegister(imInst.getRd_IM(), result.result, true);
             }
+            // Cập nhật cờ trạng thái
+            updateFlags(result);
             System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), imInst.getRd_IM(), result.result);
         } else if (instruction instanceof IFormatInstruction) {
             IFormatInstruction iInst = (IFormatInstruction) instruction;
@@ -101,6 +111,8 @@ public class CPUSimulator {
             if (signals.isRegWrite()) {
                 registerFile.writeRegister(iInst.getRd_I(), result.result, true);
             }
+            // Cập nhật cờ trạng thái
+            updateFlags(result);
             System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), iInst.getRd_I(), result.result);
         } else if (instruction instanceof DFormatInstruction) {
             DFormatInstruction dInst = (DFormatInstruction) instruction;
@@ -117,12 +129,22 @@ public class CPUSimulator {
                 memory.writeLong(address, value);
                 System.out.printf("%s -> [0x%X]=%d\n", instruction.disassemble(), address, value);
             }
+            // Không cập nhật cờ trạng thái cho LDUR/STUR
         } else if (instruction instanceof BFormatInstruction) {
             BFormatInstruction bInst = (BFormatInstruction) instruction;
             long offset = bInst.getAddress_B();
             pc = pc + (int) offset - 1; // -1 vì pc++ trong step()
             System.out.printf("%s -> PC=%d\n", instruction.disassemble(), pc + 1);
+            // Không cập nhật cờ trạng thái cho B
         }
+    }
+
+    // Phương thức cập nhật cờ trạng thái
+    private void updateFlags(ArithmeticLogicUnit.ALUResult result) {
+        zeroFlag = result.result == 0;
+        negativeFlag = result.result < 0;
+        overflowFlag = result.overflow;
+        carryFlag = result.carry;
     }
 
     public void printState() {
@@ -133,7 +155,27 @@ public class CPUSimulator {
             System.out.printf("X%-2d: 0x%016X  ", i, registerFile.readRegister(i));
             if ((i + 1) % 4 == 0) System.out.println();
         }
+   
+        System.out.println("Flags: ZF=" + (zeroFlag ? 1 : 0) + ", NF=" + (negativeFlag ? 1 : 0) +
+                ", OF=" + (overflowFlag ? 1 : 0) + ", CF=" + (carryFlag ? 1 : 0));
     }
+
+    public boolean isZeroFlag() {
+        return zeroFlag;
+    }
+
+    public boolean isNegativeFlag() {
+        return negativeFlag;
+    }
+
+    public boolean isOverflowFlag() {
+        return overflowFlag;
+    }
+
+    public boolean isCarryFlag() {
+        return carryFlag;
+    }
+
     public List<Instruction> getProgram() {
         return program;
     }

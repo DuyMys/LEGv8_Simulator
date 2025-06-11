@@ -1,7 +1,7 @@
 
 import instruction.*;
 import util.*;
-import java.util.Map;
+//import java.util.Map;
 
 /**
  * Simulates the LEGv8 Control Unit, generating control signals for an instruction.
