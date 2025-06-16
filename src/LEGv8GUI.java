@@ -1,12 +1,10 @@
-
+import core.*;
 import instruction.Instruction;
 import instruction.InstructionConfigLoader;
-// import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
-// import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
-// import org.fife.ui.rtextarea.RTextScrollPane;
+import memory.*;
+
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
-
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.table.DefaultTableModel;
@@ -449,34 +447,57 @@ public class LEGv8GUI {
 
     private void showHelp() {
         JOptionPane.showMessageDialog(frame,
-                "Help:\n- Assemble: Load program\n- Run: Execute all\n- Step Forward/Back: Single step\n- Restart: Reset program\n- Clear All: Clear all fields\nSupported instructions: ADD, SUB, MOVZ, AND, ORR, LDUR, STUR, ADDI, SUBI, B",
+                "Help:\n- Assemble: Load program\n- Run: Execute all\n- Step Forward/Back: Single step\n- Restart: Reset program\n- Clear All: Clear all fields\nSupported instructions: ADD, SUB, MOVZ, AND, ORR, LDUR, STUR, ADDI, SUBI, B, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, CMP, SMULH, UMULH",
                 "Help", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void updateStatus() {
+        // Cập nhật bảng thanh ghi
         DefaultTableModel registersModel = (DefaultTableModel) registersTable.getModel();
         registersModel.setRowCount(0);
         for (int i = 0; i < 32; i++) {
-            registersModel.addRow(
-                    new Object[] { "X" + i, String.format("0x%016X", simulator.getRegisterFile().readRegister(i)) });
+            long value = simulator.getRegisterFile().readRegister(i);
+            registersModel.addRow(new Object[] { "X" + i, String.format("0x%016X", value) });
         }
 
+        // Cập nhật bảng bộ nhớ
         DefaultTableModel memoryModel = (DefaultTableModel) memoryTable.getModel();
         memoryModel.setRowCount(0);
-        String memoryContent = simulator.getMemory().toString();
-        String[] memoryLines = memoryContent.split(", ");
-        for (String line : memoryLines) {
-            if (!line.equals("Bo nho rong")) {
-                String[] parts = line.split(": ");
-                memoryModel.addRow(new Object[] { parts[0], parts[1] });
+        Memory memory = simulator.getMemory();
+        if (memory != null) {
+            String selectedTab = (String) memoryTabSelector.getSelectedItem();
+            long baseAddress = switch (selectedTab) {
+                case "Stack" -> 0xFFFFFFF0L; // Giả định Stack bắt đầu từ 0xFFFFFFF0
+                case "Text" -> 0x10000000L;  // Giả định Text bắt đầu từ 0x10000000
+                default -> 0L;               // Data bắt đầu từ 0x00000000
+            };
+            int step = 8; // Bước nhảy 8 byte (64-bit)
+            int maxRows = 10; // Giới hạn số dòng hiển thị
+            for (int i = 0; i < maxRows; i++) {
+                long address = baseAddress + (i * step);
+                try {
+                    long value = memory.read(address, 8); // Sử dụng size 8 cho 64-bit
+                    memoryModel.addRow(new Object[] { String.format("0x%016X", address), String.format("0x%016X", value) });
+                } catch (Exception e) {
+                    memoryModel.addRow(new Object[] { String.format("0x%016X", address), "N/A" });
+                }
             }
         }
 
-        // Cập nhật hiển thị cờ trạng thái
-        zeroFlagLabel.setText( (simulator.isZeroFlag() ? "1" : "0"));
-        negativeFlagLabel.setText((simulator.isNegativeFlag() ? "1" : "0"));
-        overflowFlagLabel.setText((simulator.isOverflowFlag() ? "1" : "0"));
-        carryFlagLabel.setText((simulator.isCarryFlag() ? "1" : "0"));
+        // Cập nhật cờ trạng thái
+        zeroFlagLabel.setText(simulator.isZeroFlag() ? "1" : "0");
+        negativeFlagLabel.setText(simulator.isNegativeFlag() ? "1" : "0");
+        overflowFlagLabel.setText(simulator.isOverflowFlag() ? "1" : "0");
+        carryFlagLabel.setText(simulator.isCarryFlag() ? "1" : "0");
+
+        // // Cập nhật dòng lệnh hiện tại
+        // int currentPc = simulator.getPc();
+        // if (currentPc >= 0 && currentPc < simulator.getProgram().size()) {
+        //     Instruction currentInstruction = simulator.getProgram().get(currentPc);
+        //     if (currentInstruction != null) {
+        //         outputArea.append("Executing: " + currentInstruction.disassemble() + "\n");
+        //     }
+        // }
     }
 
     private void populateRegistersTable() {
@@ -487,7 +508,10 @@ public class LEGv8GUI {
     }
 
     private void populateMemoryTable() {
-      //  DefaultTableModel model = (DefaultTableModel) memoryTable.getModel();
+        DefaultTableModel model = (DefaultTableModel) memoryTable.getModel();
+        for (int i = 0; i < 10; i++) {
+            model.addRow(new Object[] { String.format("0x%016X", i * 8), "0x0000000000000000" });
+        }
     }
 
     private void populateInstructionTable() {
@@ -512,7 +536,7 @@ public class LEGv8GUI {
                 continue;
             }
             String addressStr = String.format("0x%08X", address);
-            String instrStr = instr.disassemble(); // Sử dụng disassemble() thay vì toString()
+            String instrStr = instr.disassemble();
             if (instrStr == null || instrStr.isEmpty()) {
                 System.out.println("Disassembled instruction at line " + lineNumber + " is empty");
                 instrStr = "INVALID";
@@ -521,7 +545,7 @@ public class LEGv8GUI {
             String source = instrStr;
             String meaning = "";
             try {
-                String[] parts = instrStr.split("[,\\s]+"); // Tách bằng dấu cách hoặc dấu phẩy
+                String[] parts = instrStr.split("[,\\s]+");
                 if (parts.length > 0) {
                     String opcode = parts[0].trim();
                     if (opcode.equals("ADD") && parts.length >= 4) {
@@ -539,12 +563,30 @@ public class LEGv8GUI {
                         meaning = parts[1].trim() + " = " + parts[2].trim() + " & " + parts[3].trim();
                     } else if (opcode.equals("ORR") && parts.length >= 4) {
                         meaning = parts[1].trim() + " = " + parts[2].trim() + " | " + parts[3].trim();
+                    } else if (opcode.equals("EOR") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " ^ " + parts[3].trim();
+                    } else if (opcode.equals("MUL") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " * " + parts[3].trim();
+                    } else if (opcode.equals("SDIV") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " / " + parts[3].trim();
+                    } else if (opcode.equals("UDIV") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = unsigned(" + parts[2].trim() + " / " + parts[3].trim() + ")";
+                    } else if (opcode.equals("LSL") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " << " + parts[3].replace("#", "").trim();
+                    } else if (opcode.equals("LSR") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " >>> " + parts[3].replace("#", "").trim();
+                    } else if (opcode.equals("ASR") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " >> " + parts[3].replace("#", "").trim();
+                    } else if (opcode.equals("CMP") && parts.length >= 3) {
+                        meaning = "Compare " + parts[1].trim() + " and " + parts[2].trim();
+                    } else if (opcode.equals("SMULH") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = high( signed(" + parts[2].trim() + " * " + parts[3].trim() + ") )";
+                    } else if (opcode.equals("UMULH") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = high( unsigned(" + parts[2].trim() + " * " + parts[3].trim() + ") )";
                     } else if (opcode.equals("LDUR") && parts.length >= 3) {
-                        meaning = parts[1].trim() + " = Memory[" + parts[2].replace("[", "").replace("]", "").trim()
-                                + "]";
+                        meaning = parts[1].trim() + " = Memory[" + parts[2].replace("[", "").replace("]", "").trim() + "]";
                     } else if (opcode.equals("STUR") && parts.length >= 3) {
-                        meaning = "Memory[" + parts[2].replace("[", "").replace("]", "").trim() + "] = "
-                                + parts[1].trim();
+                        meaning = "Memory[" + parts[2].replace("[", "").replace("]", "").trim() + "] = " + parts[1].trim();
                     } else if (opcode.equals("B") && parts.length >= 2) {
                         meaning = "Branch to " + parts[1].trim();
                     }
