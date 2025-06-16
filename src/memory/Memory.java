@@ -3,94 +3,122 @@ package memory;
 import util.Constants;
 import exceptions.MemoryAccessException;
 
-
 public class Memory {
-    private byte[] memory; 
+    private long[] memory; // Sử dụng long[] để hỗ trợ 64-bit trực tiếp
 
     public Memory() {
-        memory = new byte[Constants.MEMORY_SIZE];
+        memory = new long[Constants.MEMORY_SIZE / 8]; // Chia 8 vì mỗi phần tử là 8 byte
     }
 
-   
-    public int read(long address) {
-        validateAddress(address, 4);
-        // Chuyển 4 byte thành int (big-endian)
-        return ((memory[(int) address] & 0xFF) << 24) |
-               ((memory[(int) address + 1] & 0xFF) << 16) |
-               ((memory[(int) address + 2] & 0xFF) << 8) |
-               (memory[(int) address + 3] & 0xFF);
-    }
-
-   
-    public void writeInt(long address, int value) {
-        validateAddress(address, 4);
-        // Ghi 4 byte (big-endian)
-        memory[(int) address] = (byte) (value >> 24);
-        memory[(int) address + 1] = (byte) (value >> 16);
-        memory[(int) address + 2] = (byte) (value >> 8);
-        memory[(int) address + 3] = (byte) value;
-    }
-
-    
-    public long readLong(long address) {
-        validateAddress(address, 8);
-        // Chuyển 8 byte thành long (big-endian)
-        return ((long) (memory[(int) address] & 0xFF) << 56) |
-               ((long) (memory[(int) address + 1] & 0xFF) << 48) |
-               ((long) (memory[(int) address + 2] & 0xFF) << 40) |
-               ((long) (memory[(int) address + 3] & 0xFF) << 32) |
-               ((long) (memory[(int) address + 4] & 0xFF) << 24) |
-               ((long) (memory[(int) address + 5] & 0xFF) << 16) |
-               ((long) (memory[(int) address + 6] & 0xFF) << 8) |
-               (memory[(int) address + 7] & 0xFF);
-    }
-
-    
-    public void writeLong(long address, long value) {
-        validateAddress(address, 8);
-        // Ghi 8 byte (big-endian)
-        memory[(int) address] = (byte) (value >> 56);
-        memory[(int) address + 1] = (byte) (value >> 48);
-        memory[(int) address + 2] = (byte) (value >> 40);
-        memory[(int) address + 3] = (byte) (value >> 32);
-        memory[(int) address + 4] = (byte) (value >> 24);
-        memory[(int) address + 5] = (byte) (value >> 16);
-        memory[(int) address + 6] = (byte) (value >> 8);
-        memory[(int) address + 7] = (byte) value;
-    }
-
-    
-    public void reset() {
-        for (int i = 0; i < memory.length; i++) {
-            memory[i] = 0;
+    /**
+     * Đọc dữ liệu từ bộ nhớ với kích thước chỉ định.
+     * @param address Địa chỉ 64-bit
+     * @param size Kích thước (1, 2, 4, hoặc 8 byte)
+     * @return Giá trị đọc được
+     * @throws MemoryAccessException Nếu địa chỉ không hợp lệ
+     */
+    public long read(long address, int size) {
+        validateAddress(address, size);
+        int index = (int) (address / 8); // Chuyển đổi địa chỉ thành chỉ số mảng
+        long value = memory[index];
+        switch (size) {
+            case 1: // Đọc 1 byte (byte thấp nhất)
+                return value & 0xFF;
+            case 2: // Đọc 2 byte (short)
+                return (value >> ((address % 8) * 8)) & 0xFFFF;
+            case 4: // Đọc 4 byte (int)
+                return (value >> ((address % 8) * 8)) & 0xFFFFFFFFL;
+            case 8: // Đọc 8 byte (long)
+                return value;
+            default:
+                throw new MemoryAccessException("Kich thuoc khong duoc ho tro: " + size + " bytes");
         }
     }
 
-    
+    /**
+     * Ghi dữ liệu vào bộ nhớ với kích thước chỉ định.
+     * @param address Địa chỉ 64-bit
+     * @param value Giá trị cần ghi
+     * @param size Kích thước (1, 2, 4, hoặc 8 byte)
+     * @throws MemoryAccessException Nếu địa chỉ không hợp lệ
+     */
+    public void write(long address, long value, int size) {
+        validateAddress(address, size);
+        int index = (int) (address / 8); // Chuyển đổi địa chỉ thành chỉ số mảng
+        long mask = switch (size) {
+            case 1 -> 0xFFL << ((address % 8) * 8);
+            case 2 -> 0xFFFFL << ((address % 8) * 8);
+            case 4 -> 0xFFFFFFFFL << ((address % 8) * 8);
+            case 8 -> 0xFFFFFFFFFFFFFFFFL;
+            default -> throw new MemoryAccessException("Kich thuoc khong duoc ho tro: " + size + " bytes");
+        };
+        long clearedValue = memory[index] & ~mask;
+        long shiftedValue = (value << ((address % 8) * 8)) & mask;
+        memory[index] = clearedValue | shiftedValue;
+    }
+
+    /**
+     * Đặt lại toàn bộ bộ nhớ về 0.
+     */
+    public void reset() {
+        for (int i = 0; i < memory.length; i++) {
+            memory[i] = 0L;
+        }
+    }
+
+    /**
+     * Kiểm tra và xác thực địa chỉ bộ nhớ.
+     * @param address Địa chỉ 64-bit
+     * @param size Kích thước truy cập
+     * @throws MemoryAccessException Nếu địa chỉ không hợp lệ
+     */
     private void validateAddress(long address, int size) {
         if (address < 0 || address + size > Constants.MEMORY_SIZE) {
-        throw new MemoryAccessException("Dia chi bo nho khong hop le: 0x" + Long.toHexString(address));
+            throw new MemoryAccessException("Dia chi bo nho khong hop le: 0x" + Long.toHexString(address));
         }
         if (address % size != 0) {
             throw new MemoryAccessException("Dia chi phai can chinh theo " + size + " byte: 0x" + Long.toHexString(address));
         }
     }
 
-    
+    /**
+     * Trả về chuỗi biểu diễn bộ nhớ (chỉ hiển thị giá trị khác 0).
+     * @return Chuỗi định dạng địa chỉ:giá trị
+     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
-        for (int i = 0; i < memory.length; i += 4) {
-            int value = read(i); // Đọc 4 byte
-            if (value != 0) {
+        for (int i = 0; i < memory.length; i++) {
+            long value = memory[i];
+            if (value != 0L) {
                 if (!first) {
                     sb.append(", ");
                 }
-                sb.append(String.format("0x%X: 0x%08X", i, value));
+                long address = (long) i * 8;
+                sb.append(String.format("0x%016X: 0x%016X", address, value));
                 first = false;
             }
         }
         return sb.length() > 0 ? sb.toString() : "Bo nho rong";
+    }
+
+    /**
+     * Lấy kích thước bộ nhớ (tính bằng byte).
+     * @return Kích thước bộ nhớ
+     */
+    public long getSize() {
+        return (long) memory.length * 8;
+    }
+
+    /**
+     * Kiểm tra xem một địa chỉ có trống không (giá trị = 0).
+     * @param address Địa chỉ 64-bit
+     * @return true nếu trống, false nếu đã sử dụng
+     */
+    public boolean isEmpty(long address) {
+        validateAddress(address, 8);
+        int index = (int) (address / 8);
+        return memory[index] == 0L;
     }
 }
