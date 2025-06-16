@@ -19,7 +19,7 @@ public class LEGv8GUI {
     private JTable registersTable;
     private JTable instructionTable;
     private JTextArea outputArea;
-    private JLabel pcLabel;
+ //   private JLabel pcLabel;
     private JComboBox<String> memoryTabSelector;
 
     private JLabel zeroFlagLabel;
@@ -425,18 +425,25 @@ public class LEGv8GUI {
     }
 
     private void restartProgram() {
-        simulator.loadProgram(new String[0]);
+        simulator.reset();
+         populateInstructionTable();
+        if (outputArea != null) {
+            outputArea.append("Program restarted.\n");
+        }
         simulator.getProgram().clear();
         updateStatus();
-        outputArea.append("Program restarted.\n");
     }
 
     private void clearAll() {
-        codeEditor.setText("");
-        simulator.loadProgram(new String[0]);
-        simulator.getProgram().clear();
+        codeEditor.setText(""); 
+        simulator.reset();  
+        populateInstructionTable();   
         updateStatus();
-        outputArea.setText("");
+        simulator.getProgram().clear();
+        if (outputArea != null) {
+            outputArea.setText(""); 
+            outputArea.append("All cleared.\n");
+        }
     }
 
     private void showHelp() {
@@ -479,7 +486,7 @@ public class LEGv8GUI {
     }
 
     private void populateMemoryTable() {
-        DefaultTableModel model = (DefaultTableModel) memoryTable.getModel();
+      //  DefaultTableModel model = (DefaultTableModel) memoryTable.getModel();
     }
 
     private void populateInstructionTable() {
