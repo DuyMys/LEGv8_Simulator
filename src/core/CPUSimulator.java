@@ -1,4 +1,5 @@
 package core;
+
 import instruction.*;
 import util.*;
 import memory.Memory;
@@ -8,7 +9,8 @@ import java.util.List;
 import java.util.BitSet;
 
 /**
- * Simulates a LEGv8 CPU, executing a list of instructions and displaying register values.
+ * Simulates a LEGv8 CPU, executing a list of instructions and displaying
+ * register values.
  */
 public class CPUSimulator {
     private final InstructionFactory factory;
@@ -84,48 +86,89 @@ public class CPUSimulator {
             RFormatInstruction rInst = (RFormatInstruction) instruction;
             long rnValue = registerFile.readRegister(rInst.getRn_R());
             long rmValue = registerFile.readRegister(signals.isReg2Loc() ? rInst.getRd_R() : rInst.getRm_R());
-            ArithmeticLogicUnit.ALUResult result = alu.execute(rnValue, rmValue, signals.getAluOp(), signals.getOperation());
-            if (signals.isRegWrite()) {
+            int shift = rInst.getShift(); // Lấy giá trị shift từ RFormatInstruction
+            ArithmeticLogicUnit.ALUResult result = null;
+
+            // Xác định operation dựa trên mnemonic
+            if (mnemonic.equals("ADD")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 2); // ADD
+            } else if (mnemonic.equals("SUB")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 3); // SUB
+            } else if (mnemonic.equals("AND")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 0); // AND
+            } else if (mnemonic.equals("ORR")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 1); // ORR
+            } else if (mnemonic.equals("EOR")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 4); // EOR
+            } else if (mnemonic.equals("MUL")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 5); // MUL
+            } else if (mnemonic.equals("SDIV")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 7); // SDIV
+            } else if (mnemonic.equals("UDIV")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 8); // UDIV
+            } else if (mnemonic.equals("LSL")) {
+                result = alu.execute(rnValue, shift, signals.getAluOp(), 9); // LSL, dùng shift làm b
+            } else if (mnemonic.equals("LSR")) {
+                result = alu.execute(rnValue, shift, signals.getAluOp(), 10); // LSR
+            } else if (mnemonic.equals("ASR")) {
+                result = alu.execute(rnValue, shift, signals.getAluOp(), 11); // ASR
+            } else if (mnemonic.equals("CMP")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 6); // CMP
+                // Không cần setRegWrite(false) vì regWrite đã được định nghĩa trong ControlUnit
+            } else if (mnemonic.equals("SMULH")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 12); // SMULH
+            } else if (mnemonic.equals("UMULH")) {
+                result = alu.execute(rnValue, rmValue, signals.getAluOp(), 13); // UMULH
+            }
+
+            if (signals.isRegWrite() && result != null) {
                 registerFile.writeRegister(rInst.getRd_R(), result.result, true);
             }
-            // Cập nhật cờ trạng thái
-            updateFlags(result);
-            System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), rInst.getRd_R(), result.result);
+            // Cập nhật cờ chỉ khi FlagW = 1
+            if (signals.isFlagWrite() && result != null) {
+                updateFlags(result);
+            }
+            String output = signals.isRegWrite() ? "X" + rInst.getRd_R() + "=" + result.result : "Flags updated";
+            System.out.printf("%s -> %s\n", instruction.disassemble(), output);
         } else if (instruction instanceof IMFormatInstruction) {
             IMFormatInstruction imInst = (IMFormatInstruction) instruction;
             long immediate = imInst.getImmediate_IM() << (imInst.getShift_IM() * 16);
             long rnValue = signals.isAluSrc() ? 0 : registerFile.readRegister(imInst.getRd_IM());
-            ArithmeticLogicUnit.ALUResult result = alu.execute(rnValue, immediate, signals.getAluOp(), signals.getOperation());
+            ArithmeticLogicUnit.ALUResult result = alu.execute(rnValue, immediate, signals.getAluOp(),
+                    signals.getOperation());
             if (signals.isRegWrite()) {
                 registerFile.writeRegister(imInst.getRd_IM(), result.result, true);
             }
-            // Cập nhật cờ trạng thái
-            updateFlags(result);
+            if (signals.isFlagWrite()) {
+                updateFlags(result);
+            }
             System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), imInst.getRd_IM(), result.result);
         } else if (instruction instanceof IFormatInstruction) {
             IFormatInstruction iInst = (IFormatInstruction) instruction;
             long rnValue = registerFile.readRegister(iInst.getRn_I());
             long immediate = iInst.getImmediate_I();
-            ArithmeticLogicUnit.ALUResult result = alu.execute(rnValue, immediate, signals.getAluOp(), signals.getOperation());
+            ArithmeticLogicUnit.ALUResult result = alu.execute(rnValue, immediate, signals.getAluOp(),
+                    signals.getOperation());
             if (signals.isRegWrite()) {
                 registerFile.writeRegister(iInst.getRd_I(), result.result, true);
             }
-            // Cập nhật cờ trạng thái
-            updateFlags(result);
+            if (signals.isFlagWrite()) {
+                updateFlags(result);
+            }
             System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), iInst.getRd_I(), result.result);
         } else if (instruction instanceof DFormatInstruction) {
             DFormatInstruction dInst = (DFormatInstruction) instruction;
             long rnValue = registerFile.readRegister(dInst.getRn_D());
             long address = rnValue + dInst.getAddress_D();
             if (mnemonic.equals("LDUR")) {
-                long value = memory.readLong(address);
+                long value = memory.read(address, 8);
                 if (signals.isRegWrite()) {
                     registerFile.writeRegister(dInst.getRt_D(), value, true);
                 }
                 System.out.printf("%s -> X%d=%d\n", instruction.disassemble(), dInst.getRt_D(), value);
             } else if (mnemonic.equals("STUR")) {
                 long value = registerFile.readRegister(dInst.getRt_D());
-                memory.writeLong(address, value);
+                memory.write(address, value, 8);
                 System.out.printf("%s -> [0x%X]=%d\n", instruction.disassemble(), address, value);
             }
             // Không cập nhật cờ trạng thái cho LDUR/STUR
@@ -140,8 +183,8 @@ public class CPUSimulator {
 
     // Phương thức cập nhật cờ trạng thái
     private void updateFlags(ArithmeticLogicUnit.ALUResult result) {
-        zeroFlag = result.result == 0;
-        negativeFlag = result.result < 0;
+        zeroFlag = result.zero;
+        negativeFlag = result.negative;
         overflowFlag = result.overflow;
         carryFlag = result.carry;
     }
@@ -152,9 +195,9 @@ public class CPUSimulator {
         System.out.println("Registers:");
         for (int i = 0; i < 32; i++) {
             System.out.printf("X%-2d: 0x%016X  ", i, registerFile.readRegister(i));
-            if ((i + 1) % 4 == 0) System.out.println();
+            if ((i + 1) % 4 == 0)
+                System.out.println();
         }
-   
         System.out.println("Flags: ZF=" + (zeroFlag ? 1 : 0) + ", NF=" + (negativeFlag ? 1 : 0) +
                 ", OF=" + (overflowFlag ? 1 : 0) + ", CF=" + (carryFlag ? 1 : 0));
     }
@@ -207,7 +250,7 @@ public class CPUSimulator {
         this.pc = pc;
     }
 
-     public void reset() {
+    public void reset() {
         program.clear();
         pc = 0;
         registerFile.reset();
