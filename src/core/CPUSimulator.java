@@ -1,12 +1,11 @@
-
+package core;
 import instruction.*;
 import util.*;
 import memory.Memory;
-import exceptions.MemoryAccessException;
+//import exceptions.MemoryAccessException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.BitSet;
-//import java.util.Scanner;
 
 /**
  * Simulates a LEGv8 CPU, executing a list of instructions and displaying register values.
@@ -206,5 +205,16 @@ public class CPUSimulator {
 
     public void setPc(int pc) {
         this.pc = pc;
+    }
+
+     public void reset() {
+        program.clear();
+        pc = 0;
+        registerFile.reset();
+        memory.reset();
+        zeroFlag = false;
+        negativeFlag = false;
+        overflowFlag = false;
+        carryFlag = false;
     }
 }

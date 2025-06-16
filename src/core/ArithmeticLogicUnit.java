@@ -1,4 +1,4 @@
-//package core;
+package core;
 
 /**
  * Simulates the LEGv8 Arithmetic Logic Unit (ALU).

@@ -1,4 +1,4 @@
-//package core;
+package core;
 /**
  * Simulates the LEGv8 register file storage (X0–X31).
  */
@@ -23,6 +23,12 @@ public class RegisterStorage {
         }
         if (index != 31) { // XZR is read-only
             registers[index] = value;
+        }
+    }
+
+    public void reset() {
+        for (int i = 0; i < registers.length; i++) {
+            registers[i] = 0; 
         }
     }
 }
