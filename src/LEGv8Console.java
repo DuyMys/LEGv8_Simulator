@@ -83,8 +83,8 @@ public class LEGv8Console {
    Enter LEGv8 program (end with 'end'):
    MOVZ X1, #5, LSL #0
    ADDI X2, X1, #10
-   STUR X2, [X1, #8]
-   LDUR X3, [X1, #8]
+   STUR X2, [X1, #3]
+   LDUR X3, [X1, #3]
    B #2
    ADD X4, X1, X2
    end
