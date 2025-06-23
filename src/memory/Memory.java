@@ -1,6 +1,8 @@
 package memory;
 
 import util.Constants;
+import java.util.HashMap;
+import java.util.Map;
 import exceptions.MemoryAccessException;
 
 public class Memory {
