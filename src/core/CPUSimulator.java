@@ -297,56 +297,128 @@ public class CPUSimulator {
     // --- GENERATOR FOR I-FORMAT ---
     // I-Format: Instructions like ADDI, SUBI (Immediate arithmetic)
     private void generateIFormatSteps(IFormatInstruction iInst) {
+        // --- Instruction Details ---
+        String op = iInst.getDefinition().getInstructionName(); // e.g., "ADDI", "SUBI"
         int rd = iInst.getRd_I();
         int rn = iInst.getRn_I();
         long imm = iInst.getImmediate_I();
+
+        // --- Data Values (calculated for simulation) ---
         long rnValue = registerFile.readRegister(rn);
-        long result = rnValue + imm; // Example for ADDI; adjust for other operations
+        long result;
+
+        // Determine the result based on the operation
+        switch (op.toUpperCase()) {
+            case "SUBI":
+                result = rnValue - imm;
+                break;
+            case "ADDI":
+            default: // Default to ADDI for simplicity
+                result = rnValue + imm;
+                break;
+        }
+        
+        String rnName = "R" + rn;
+        String rdName = "R" + rd;
+        long pcPlus4 = (pc + 1) * 4;
+
+        // --- Micro-Step Generation ---
 
         // Step 1: Instruction Fetch
+        // PC sends its address to Instruction Memory and the PC+4 adder.
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
             List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
-            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
-                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
+            List.of(
+                BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), BusID.ADD_4_TO_ADD_1.name()
+            ),
             Map.of(
                 BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
-                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
+                BusID.PC_TO_ADD_1.name(), String.format("0x%X", pc * 4),
+                BusID.ADD_4_TO_ADD_1.name(), "4"
+            ),
+            null
+        ));
+        microStepQueue.add(new MicroStep(
+            "Instruction Fetch",
+            List.of("ADD_1", "MUX_PCSRC"),
+            List.of(
+                BusID.ADD_1_TO_MUX_PCSRC.name()
+            ),
+            Map.of(
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", pcPlus4)
             ),
             null
         ));
 
         // Step 2: Decode & Register Read
+        // The instruction is decoded. The register file reads the value from Rn.
+        // The ALUSrc control signal is set to '1' to select the immediate value for the ALU.
         microStepQueue.add(new MicroStep(
             "Decode & Read Register",
-            List.of("CONTROL_UNIT", "REGISTERS"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
-                    BusID.REGISTERS_TO_ALU_READ1.name(), BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name()),
-            Map.of(BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue)),
+            List.of("CONTROL_UNIT", "REGISTERS", "MUX_ALUsrc"),
+            List.of(
+                BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(),                 
+                BusID.REGISTERS_TO_ALU_READ1.name(), 
+                BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name()
+            ),
+            Map.of(
+                BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), iInst.getInstructionHex(),
+                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("Imm: %d", imm),
+                BusID.REGISTERS_TO_ALU_READ1.name(), String.format("%s: %d", rnName, rnValue),
+                BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name(), "ALUSrc: 1"
+            ),
             null
         ));
 
         // Step 3: Execute (ALU)
+        // The immediate value is sign-extended and sent to the ALU.
+        // The ALU performs the operation (ADD/SUB) and outputs the result.
         microStepQueue.add(new MicroStep(
             "Execute (ALU Operation)",
-            List.of("ALU", "SIGN_EXTEND", "MUX_ALUsrc"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
-                    BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
+            List.of("SIGN_EXTEND", "MUX_ALUsrc"),
+            List.of(
+                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name()
+            ),
             Map.of(
-                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm),
-                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result)
+                // The sign-extended immediate is selected by the MUX and goes to the ALU
+                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm)
+            ),
+            null
+        ));
+        microStepQueue.add(new MicroStep(
+            "Execute (ALU Operation)",
+            List.of("ALU", "MUX_ALUsrc"),
+            List.of(
+                BusID.MUX_ALUsrc_TO_ALU.name(), 
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name()
+            ),
+            Map.of(
+                BusID.MUX_ALUsrc_TO_ALU.name() + " (Rn Value)", String.valueOf(rnValue),
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("Result: %d", result)
             ),
             null
         ));
 
         // Step 4: Write-Back
+        // The result from the ALU is written back to the destination register (Rd).
+        // Control signals RegWrite=1 and MemToReg=0 are set.
         microStepQueue.add(new MicroStep(
             "Write-Back",
             List.of("MUX_memtoreg", "REGISTERS"),
-            List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
-                    BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
-                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
-            Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+            List.of(
+                BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
+                BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(),
+                BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE.name()
+            ),
+            Map.of(
+                BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), "MemToReg: 0",
+                BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), "RegWrite: 1",
+                BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result),
+                BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE.name(), rdName
+            ),
             () -> registerFile.writeRegister(rd, result, true)
         ));
     }
