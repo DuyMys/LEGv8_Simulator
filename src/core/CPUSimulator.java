@@ -1,31 +1,43 @@
 package core;
-
-import instruction.*;
 import util.*;
+import datapath.*;
+import instruction.*; 
 import memory.Memory;
-//import exceptions.MemoryAccessException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.BitSet;
 
 /**
- * Simulates a LEGv8 CPU, executing a list of instructions and displaying
- * register values.
+ * Simulates a LEGv8 CPU, enhanced with datapath tracking for GUI visualization.
  */
 public class CPUSimulator {
+    // --- Core Components ---
     private final InstructionFactory factory;
     private final RegisterFileController registerFile;
     private final ArithmeticLogicUnit alu;
     private final ControlUnit controlUnit;
     private final Memory memory;
     private final List<Instruction> program;
-    private int pc;
+    private int pc; 
 
-    // Thêm các cờ trạng thái
+    // --- CPU Flags ---
     private boolean zeroFlag;
     private boolean negativeFlag;
     private boolean overflowFlag;
     private boolean carryFlag;
+
+    // --- Micro-Step Execution State ---
+    private List<MicroStep> microStepQueue;
+    private int currentMicroStepIndex;
+
+    // --- State for GUI Visualization ---
+    private List<String> activeComponents;
+    private List<String> activeBuses;
+    private Map<String, String> busDataValues;
+    private String lastExecutedInstruction = "None";
+    private boolean isFinished = false;
 
     public CPUSimulator(InstructionConfigLoader configLoader) {
         this.factory = new InstructionFactory(configLoader);
@@ -34,6 +46,13 @@ public class CPUSimulator {
         this.controlUnit = new ControlUnit(configLoader);
         this.memory = new Memory();
         this.program = new ArrayList<>();
+        this.microStepQueue = new ArrayList<>();
+        
+        // Initialize visualization state
+        this.activeComponents = new ArrayList<>();
+        this.activeBuses = new ArrayList<>();
+        this.busDataValues = new HashMap<>();
+        
         this.pc = 0;
     }
 
@@ -59,22 +78,16 @@ public class CPUSimulator {
         System.out.println("Program loaded with " + program.size() + " instruction(s).");
     }
 
+    // public void executeProgram() {
+    //     while (!isFinished) {
+    //         step();
+    //     }
+    // }
     public void executeProgram() {
         while (pc < program.size()) {
             step();
         }
         System.out.println("Program finished.");
-        printState();
-    }
-
-    public void step() {
-        if (pc >= program.size()) {
-            System.out.println("Program has finished.");
-            return;
-        }
-        Instruction instruction = program.get(pc);
-        executeInstruction(instruction);
-        pc++;
         printState();
     }
 
@@ -202,18 +215,422 @@ public class CPUSimulator {
                 ", OF=" + (overflowFlag ? 1 : 0) + ", CF=" + (carryFlag ? 1 : 0));
     }
 
+    /**
+     * Executes ONE micro-step.
+     */
+    public void step() {
+        if (isFinished) return;
+
+        // If the queue is empty, it means we are at the start of a new instruction.
+        // Generate the micro-steps for it.
+        if (microStepQueue.isEmpty()) {
+            if (pc >= program.size()) {
+                isFinished = true;
+                lastExecutedInstruction = "Execution Complete";
+                clearDatapathActivity();
+                return;
+            }
+            Instruction instruction = program.get(pc);
+            lastExecutedInstruction = instruction.disassemble();
+            generateMicroStepsFor(instruction);
+        }
+        
+        // Execute the next micro-step in the queue
+        if (currentMicroStepIndex < microStepQueue.size()) {
+            MicroStep step = microStepQueue.get(currentMicroStepIndex);
+            
+            // Set the datapath visualization for THIS step
+            this.activeComponents = step.getActiveComponents();
+            this.activeBuses = step.getActiveBuses();
+            this.busDataValues = step.getBusDataValues();
+            
+            // Execute the action associated with this step (e.g., the actual register write)
+            step.executeAction();
+
+            currentMicroStepIndex++;
+        }
+        
+        // If we just finished the last micro-step, advance the PC and clear the queue
+        if (currentMicroStepIndex >= microStepQueue.size()) {
+            // PC is advanced by the branch micro-step or by this default
+            if (!lastExecutedInstruction.startsWith("B ") && !lastExecutedInstruction.startsWith("CB")) {
+                pc++;
+            }
+            microStepQueue.clear();
+            currentMicroStepIndex = 0;
+            
+            if (pc >= program.size()) {
+                isFinished = true;
+            }
+        }
+    }
+    /**
+     * Generates a sequence of micro-steps for a given instruction.
+     * Does NOT execute them.
+     */
+    private void generateMicroStepsFor(Instruction instruction) {
+        microStepQueue.clear();
+        currentMicroStepIndex = 0;
+
+        // Based on format, generate the appropriate sequence
+        if (instruction instanceof IFormatInstruction) {
+            generateIFormatSteps((IFormatInstruction) instruction);
+        }
+        else if (instruction instanceof RFormatInstruction) {
+            generateRFormatSteps((RFormatInstruction) instruction);
+        } 
+        else if (instruction instanceof BFormatInstruction) {
+            generateBFormatSteps((BFormatInstruction) instruction);
+        } 
+        else if (instruction instanceof DFormatInstruction) {
+            generateDFormatSteps((DFormatInstruction) instruction);
+        } 
+        else if (instruction instanceof IMFormatInstruction) {
+            generateIMFormatSteps((IMFormatInstruction) instruction);
+        }
+        else {
+            // Placeholder for unsupported instructions
+            microStepQueue.add(new MicroStep("Unsupported Instruction", 
+                List.of("CONTROL_UNIT"), List.of(), Map.of(), null));
+        }
+    }
+    // --- GENERATOR FOR I-FORMAT ---
+    // I-Format: Instructions like ADDI, SUBI (Immediate arithmetic)
+    private void generateIFormatSteps(IFormatInstruction iInst) {
+        int rd = iInst.getRd_I();
+        int rn = iInst.getRn_I();
+        long imm = iInst.getImmediate_I();
+        long rnValue = registerFile.readRegister(rn);
+        long result = rnValue + imm; // Example for ADDI; adjust for other operations
+
+        // Step 1: Instruction Fetch
+        microStepQueue.add(new MicroStep(
+            "Instruction Fetch",
+            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
+            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
+            Map.of(
+                BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
+            ),
+            null
+        ));
+
+        // Step 2: Decode & Register Read
+        microStepQueue.add(new MicroStep(
+            "Decode & Read Register",
+            List.of("CONTROL_UNIT", "REGISTERS"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.REGISTERS_TO_ALU_READ1.name(), BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name()),
+            Map.of(BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue)),
+            null
+        ));
+
+        // Step 3: Execute (ALU)
+        microStepQueue.add(new MicroStep(
+            "Execute (ALU Operation)",
+            List.of("ALU", "SIGN_EXTEND", "MUX_ALUsrc"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
+                    BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
+            Map.of(
+                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm),
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result)
+            ),
+            null
+        ));
+
+        // Step 4: Write-Back
+        microStepQueue.add(new MicroStep(
+            "Write-Back",
+            List.of("MUX_memtoreg", "REGISTERS"),
+            List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
+                    BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+            Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+            () -> registerFile.writeRegister(rd, result, true)
+        ));
+    }
+
+    // R-Format: Instructions like ADD, SUB (Register-register arithmetic)
+    private void generateRFormatSteps(RFormatInstruction rInst) {
+        int rd = rInst.getRd_R();
+        int rn = rInst.getRn_R();
+        int rm = rInst.getRm_R();
+        long rnValue = registerFile.readRegister(rn);
+        long rmValue = registerFile.readRegister(rm);
+        long result = rnValue + rmValue; // Example for ADD; adjust for other operations
+
+        // Step 1: Instruction Fetch
+        microStepQueue.add(new MicroStep(
+            "Instruction Fetch",
+            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
+            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
+            Map.of(
+                BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
+            ),
+            null
+        ));
+
+        // Step 2: Decode & Register Read
+        microStepQueue.add(new MicroStep(
+            "Decode & Read Registers",
+            List.of("CONTROL_UNIT", "REGISTERS"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.REGISTERS_TO_ALU_READ1.name(), BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(),
+                    BusID.MUX_ALUsrc_TO_ALU.name()),
+            Map.of(
+                BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue),
+                BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(), String.valueOf(rmValue)
+            ),
+            null
+        ));
+
+        // Step 3: Execute (ALU)
+        microStepQueue.add(new MicroStep(
+            "Execute (ALU Operation)",
+            List.of("ALU"),
+            List.of(BusID.REGISTERS_TO_ALU_READ1.name(), BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(), 
+                    BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
+            Map.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result)),
+            null
+        ));
+
+        // Step 4: Write-Back
+        microStepQueue.add(new MicroStep(
+            "Write-Back",
+            List.of("MUX_memtoreg", "REGISTERS"),
+            List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
+                    BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+            Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+            () -> registerFile.writeRegister(rd, result, true)
+        ));
+    }
+
+    // B-Format: Instructions like B (Unconditional branch)
+    private void generateBFormatSteps(BFormatInstruction bInst) {
+        long imm = bInst.getBranchAddress(pc);
+        long branchTarget = pc * 4 + imm; // Branch target address
+
+        // Step 1: Instruction Fetch
+        microStepQueue.add(new MicroStep(
+            "Instruction Fetch",
+            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
+            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
+            Map.of(
+                BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
+            ),
+            null
+        ));
+
+        // Step 2: Decode & Calculate Branch Target
+        microStepQueue.add(new MicroStep(
+            "Decode & Calculate Branch Target",
+            List.of("CONTROL_UNIT", "SIGN_EXTEND", "ADD_BRANCH"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
+                    BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), BusID.PC_TO_ADD_2.name(), 
+                    BusID.SHIFT_LEFT_2_TO_ADD.name(),
+                    BusID.ADD_2_TO_MUX_PCSRC.name()),
+            Map.of(
+                BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), String.valueOf(imm),
+                BusID.ADD_2_TO_MUX_PCSRC.name(), String.format("0x%X", branchTarget)
+            ),
+            null
+        ));
+
+        // Step 3: Branch (Update PC)
+        microStepQueue.add(new MicroStep(
+            "Branch (Update PC)",
+            List.of("MUX_PCSRC"),
+            List.of(BusID.CONTROL_UNCOND_TO_OR_GATE.name(), BusID.ADD_2_TO_MUX_PCSRC.name(),
+                    BusID. OR_GATE_TO_MUX_PCSRC.name(),
+                    BusID.MUX_PCSRC_TO_PC.name()),
+            Map.of(BusID.MUX_PCSRC_TO_PC.name(), String.format("0x%X", branchTarget)),
+            () -> pc = (int)branchTarget / 4
+        ));
+    }
+    
+
+    // D-Format: Instructions like LDUR, STUR (Load/Store)
+    private void generateDFormatSteps(DFormatInstruction dInst) {
+        int rt = dInst.getRt_D();
+        int rn = dInst.getRn_D();
+        long imm = dInst.getAddress_D();
+        long rnValue = registerFile.readRegister(rn);
+        long address = rnValue + imm;
+        long data = dInst.isLoad() ? memory.read(address, 8) : registerFile.readRegister(rt);
+
+        // Step 1: Instruction Fetch
+        microStepQueue.add(new MicroStep(
+            "Instruction Fetch",
+            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
+            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
+            Map.of(
+                BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
+            ),
+            null
+        ));
+
+        // Step 2: Decode & Register Read
+        microStepQueue.add(new MicroStep(
+            "Decode & Read Register",
+            List.of("CONTROL_UNIT", "REGISTERS"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.REGISTERS_TO_ALU_READ1.name()),
+            Map.of(BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue)),
+            null
+        ));
+
+        // Step 3: Address Calculation
+        microStepQueue.add(new MicroStep(
+            "Address Calculation",
+            List.of("ALU", "SIGN_EXTEND", "MUX_ALUsrc"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
+                    BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), BusID.ALU_TO_DATA_MEMORY_ADDRESS.name()),
+            Map.of(
+                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm),
+                BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), String.valueOf(address)
+            ),
+            null
+        ));
+
+        // Step 4: Memory Access
+        if (dInst.isLoad()) {
+            microStepQueue.add(new MicroStep(
+                "Memory Read",
+                List.of("DATA_MEMORY", "MUX_memtoreg"),
+                List.of(BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), 
+                        BusID.DATA_MEMORY_TO_MUX_memtoreg_READ.name(), 
+                        BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name()),
+                Map.of(BusID.DATA_MEMORY_TO_MUX_memtoreg_READ.name(), String.valueOf(data)),
+                null
+            ));
+
+            // Step 5: Write-Back (for LDUR)
+            microStepQueue.add(new MicroStep(
+                "Write-Back",
+                List.of("REGISTERS"),
+                List.of(BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                        BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+                Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(data)),
+                () -> registerFile.writeRegister(rt, data, true)
+            ));
+        } else {
+            microStepQueue.add(new MicroStep(
+                "Memory Write",
+                List.of("DATA_MEMORY", "REGISTERS"),
+                List.of(BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), 
+                        BusID.REGISTERS_TO_DATA_MEMORY_WRITE_DATA.name(), 
+                        BusID.CONTROL_MEMWRITE_TO_DATA_MEMORY.name()),
+                Map.of(BusID.REGISTERS_TO_DATA_MEMORY_WRITE_DATA.name(), String.valueOf(data)),
+                () -> memory.write(address, data, 8)
+            ));
+        }
+    }
+
+    // IM-Format: Instructions like MOVZ, MOVK (Move immediate)
+    private void generateIMFormatSteps(IMFormatInstruction imInst) {
+        int rd = imInst.getRd_IM();
+        long imm = imInst.getImmediate_IM();
+        long result = imm; // For MOVZ; MOVK requires masking existing register value
+
+        // Step 1: Instruction Fetch
+        microStepQueue.add(new MicroStep(
+            "Instruction Fetch",
+            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
+            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
+            Map.of(
+                BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
+            ),
+            null
+        ));
+
+        // Step 2: Decode
+        microStepQueue.add(new MicroStep(
+            "Decode",
+            List.of("CONTROL_UNIT", "SIGN_EXTEND"),
+            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name()),
+            Map.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm)),
+            null
+        ));
+
+        // Step 3: Write-Back
+        microStepQueue.add(new MicroStep(
+            "Write-Back",
+            List.of("MUX_memtoreg", "REGISTERS"),
+            List.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), 
+                    BusID.MUX_ALUsrc_TO_ALU.name(), 
+                    BusID.ALU_TO_MUX_memtoreg_RESULT.name(),
+                    BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+            Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+            () -> registerFile.writeRegister(rd, result, true)
+        ));
+    }
+
+    // --- Reset and Getters ---
+    public void reset() {
+        program.clear();
+        pc = 0;
+        registerFile.reset();
+        memory.reset();
+        isFinished = true;
+        microStepQueue.clear();
+        currentMicroStepIndex = 0;
+        clearDatapathActivity();
+        lastExecutedInstruction = "None";
+    }
+
+    private void clearDatapathActivity() {
+        activeComponents.clear();
+        activeBuses.clear();
+        busDataValues.clear();
+    }
+
+    // --- Public Getters for GUI ---
+
+    public int getPc() { return pc; }
+    public long getRegisterValue(int regNum) { return registerFile.readRegister(regNum); }
+    public Map<Long, Long> getMemoryState() { return memory.getAllData();}
+    public Memory getMemory() { return memory; }
+    public boolean isFinished() { return isFinished; }
+    public List<String> getActiveComponents() { return new ArrayList<>(activeComponents); }
+    public List<String> getActiveBuses() { return new ArrayList<>(activeBuses); }
+    public Map<String, String> getBusDataValues() { return new HashMap<>(busDataValues); }
+    public String getCurrentMicroStepDescription() {
+        if (!microStepQueue.isEmpty() && currentMicroStepIndex < microStepQueue.size()) {
+            return microStepQueue.get(currentMicroStepIndex).getDescription();
+        }
+        return "Ready for next instruction.";
+    }
+    public String getLastExecutedInstruction() { return lastExecutedInstruction; }
+    public int getInstructionCount() { return program.size(); }
+    
+    public void setPc(int pc) {
+        this.pc = pc;
+    }
+
     public boolean isZeroFlag() {
         return zeroFlag;
     }
 
     public boolean isNegativeFlag() {
         return negativeFlag;
-    }
-
+    }   
     public boolean isOverflowFlag() {
         return overflowFlag;
     }
-
+    
     public boolean isCarryFlag() {
         return carryFlag;
     }
@@ -236,28 +653,5 @@ public class CPUSimulator {
 
     public ControlUnit getControlUnit() {
         return controlUnit;
-    }
-
-    public Memory getMemory() {
-        return memory;
-    }
-
-    public int getPc() {
-        return pc;
-    }
-
-    public void setPc(int pc) {
-        this.pc = pc;
-    }
-
-    public void reset() {
-        program.clear();
-        pc = 0;
-        registerFile.reset();
-        memory.reset();
-        zeroFlag = false;
-        negativeFlag = false;
-        overflowFlag = false;
-        carryFlag = false;
     }
 }
