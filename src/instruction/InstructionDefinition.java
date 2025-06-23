@@ -58,6 +58,10 @@ public class InstructionDefinition {
         return opcodeId.equals(extractedOpcodeStr);
     }
 
+    public String getInstructionName() {
+        return mnemonic;
+    }
+
     @Override
     public String toString() {
         return String.format("InstructionDefinition[mnemonic=%s, format=%c, opcodeId=%s, controlSignals=%s]",
