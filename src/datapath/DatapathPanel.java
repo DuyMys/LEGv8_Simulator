@@ -2,6 +2,7 @@ package datapath;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -36,11 +37,18 @@ public class DatapathPanel extends JPanel {
     private final Map<BusID, Set<LabelPlacement>> busLabelPlacements;
     private final Map<BusID, Boolean> busDrawArrow;
 
-    private static final Color DEFAULT_BUS_COLOR = Color.LIGHT_GRAY;
-    private static final Color HIGHLIGHT_BUS_COLOR = new Color(165, 56, 96);
-    private static final Stroke DEFAULT_BUS_STROKE = new BasicStroke(1);
-    private static final Stroke HIGHLIGHT_BUS_STROKE = new BasicStroke(3);
-    private static final int ARROW_HEAD_SIZE = 10;
+    private static final Color BACKGROUND_COLOR = new Color(245, 248, 250); // Soft off-white
+    private static final Color DEFAULT_BUS_COLOR = new Color(205, 210, 215); // Lighter, softer gray
+    private static final Color HIGHLIGHT_BUS_COLOR = new Color(165, 56, 96); 
+    private static final Color SHADOW_COLOR = new Color(0, 0, 0, 50); // Soft, transparent black for shadows
+    private static final Color LABEL_BACKGROUND_COLOR = new Color(255, 255, 255, 200); // Semi-transparent white
+
+    private static final Stroke DEFAULT_BUS_STROKE = new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final Stroke HIGHLIGHT_BUS_STROKE = new BasicStroke(4, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final int ARROW_HEAD_SIZE = 12; // Slightly larger arrow
+    private static final int SHADOW_OFFSET = 3;   // Drop shadow offset
+
+
     private static final String IMAGE_PATH = "src/images/";
 
     // Enum to specify label placement
@@ -65,11 +73,12 @@ public class DatapathPanel extends JPanel {
         this.busDrawArrow = new HashMap<>();
         this.busAnimationProgress = new HashMap<>();
         this.animationTimer = new Timer(ANIMATION_STEP_MS, e -> updateAnimation());
+        
         loadImages();
         this.components = initializeComponents();
         this.buses = initializeBuses();
-        setPreferredSize(new Dimension(800, 600)); // Increased to accommodate varying image sizes
-        setBackground(Color.WHITE);
+        setPreferredSize(new Dimension(800, 600)); 
+        setBackground(BACKGROUND_COLOR);
     }
 
     @Override
@@ -148,13 +157,13 @@ public class DatapathPanel extends JPanel {
 
         // Registers
         dim = imageDimensions.get(ComponentID.REGISTERS);
-        comps.add(new ComponentInfo("REGISTERS", baseX + 250 + spacingX, baseY + 100, 180, 180, 
+        comps.add(new ComponentInfo("REGISTERS", baseX + 300 + spacingX, baseY + 100, 180, 180, 
                                     "Registers", null, null));
                                     
 
         // Sign Extend
         dim = imageDimensions.get(ComponentID.SIGN_EXTEND);
-        comps.add(new ComponentInfo("SIGN_EXTEND", baseX + 300 + spacingX, baseY + 290, 80, 100, 
+        comps.add(new ComponentInfo("SIGN_EXTEND", baseX + 350 + spacingX, baseY + 290, 80, 100, 
                                     "Sign\nExtend", null, null));
 
         // MUX_ALUsrc
@@ -164,7 +173,7 @@ public class DatapathPanel extends JPanel {
 
         // ALU
         dim = imageDimensions.get(ComponentID.ALU);
-        comps.add(new ComponentInfo("ALU", baseX + 600 + spacingX, baseY + 100, 100, 150, 
+        comps.add(new ComponentInfo("ALU", baseX + 570 + spacingX, baseY + 100, 130, 150, 
                                     "ALU", null, null));
 
         // Data Memory
@@ -178,7 +187,7 @@ public class DatapathPanel extends JPanel {
                                     "M\nU\nX", null, null));
         // MUX_reg2loc
         dim = imageDimensions.get(ComponentID.MUX_reg2loc);
-        comps.add(new ComponentInfo("MUX_reg2loc", baseX + 200 + spacingX, baseY + 100, 30, 80, 
+        comps.add(new ComponentInfo("MUX_reg2loc", baseX + 250 + spacingX, baseY + 128, 30, 80, 
                                     "M\nU\nX", null, null));
 
         // PC
@@ -188,15 +197,15 @@ public class DatapathPanel extends JPanel {
 
         // ADD_1
         dim = imageDimensions.get(ComponentID.ADD_1);
-        comps.add(new ComponentInfo("ADD_1", baseX + 120, baseY - 180, 50, 90, 
+        comps.add(new ComponentInfo("ADD_1", baseX + 120, baseY - 180, 70, 80, 
                                     "Add", null, null));
         // ADD_2
         dim = imageDimensions.get(ComponentID.ADD_2);
-        comps.add(new ComponentInfo("ADD_2", baseX + 550 + spacingX, baseY - 180, 50,90, 
+        comps.add(new ComponentInfo("ADD_2", baseX + 550 + spacingX, baseY - 180, 90,90, 
                                     "Add", null, null));
         // SHIFT_LEFT_2
         dim = imageDimensions.get(ComponentID.SHIFT_LEFT_2);
-        comps.add(new ComponentInfo("SHIFT_LEFT_2", baseX + 450 + spacingX, baseY - 155, 40, 50, 
+        comps.add(new ComponentInfo("SHIFT_LEFT_2", baseX + 472 + spacingX, baseY - 145, 40, 50, 
                                     "Shift\nLeft 2", null, null));
         // MUX_PCSRC
         dim = imageDimensions.get(ComponentID.MUX_PCSRC);
@@ -204,19 +213,19 @@ public class DatapathPanel extends JPanel {
                                     "M\nU\nX", null, null));
         // ALU Control
         dim = imageDimensions.get(ComponentID.ALU_CONTROL);
-        comps.add(new ComponentInfo("ALU_CONTROL", baseX + 600 + spacingX, baseY + 280, 80, 100, 
+        comps.add(new ComponentInfo("ALU_CONTROL", baseX + 620 + spacingX, baseY + 280, 80, 100, 
                                     "ALU\nControl", null, null));
         // Control Unit
         dim = imageDimensions.get(ComponentID.CONTROL_UNIT);
-        comps.add(new ComponentInfo("CONTROL_UNIT", baseX + 240 + spacingX, baseY - 90, dim.width, 170, 
+        comps.add(new ComponentInfo("CONTROL_UNIT", baseX + 300 + spacingX, baseY - 90, 140, 175, 
                                     "Control\nUnit", null, null));
         // AND Gate
         dim = imageDimensions.get(ComponentID.AND_GATE);
-        comps.add(new ComponentInfo("AND_GATE", baseX + 720 + spacingX, baseY + 60, 65, 40, 
+        comps.add(new ComponentInfo("AND_GATE", baseX + 720 + spacingX, baseY + 55, 65, 40, 
                                     "AND", null, null));
         // OR Gate
         dim = imageDimensions.get(ComponentID.OR_GATE);
-        comps.add(new ComponentInfo("OR_GATE", baseX + 830 + spacingX, baseY - 80, 65, 40, 
+        comps.add(new ComponentInfo("OR_GATE", baseX + 830 + spacingX, baseY - 85, 65, 40, 
                                     "OR", null, null));
         // Add_4
         dim = imageDimensions.get(ComponentID.ADD_4);
@@ -304,45 +313,42 @@ public class DatapathPanel extends JPanel {
         // Instruction Memory paths
         pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_REGISTERS_READ1, 
             Arrays.asList(
-                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("REGISTERS").y + 20),
                 new Point(compBounds.get("REGISTERS").x, compBounds.get("REGISTERS").y + 20)
             ));
-        pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_MUX_reg2loc_0, 
+        pathPoints.put(BusID.INSTRUCTION_MEMORY_, 
             Arrays.asList(
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
+                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2)
+            ));
+        pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_MUX_reg2loc_0, 
+            Arrays.asList(
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("MUX_reg2loc").y + 20),
                 new Point(compBounds.get("MUX_reg2loc").x, compBounds.get("MUX_reg2loc").y + 20)
             ));
         pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_MUX_reg2loc_1,
             Arrays.asList(
-                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
-                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("MUX_reg2loc").y + 60),
-                new Point(compBounds.get("MUX_reg2loc").x, compBounds.get("MUX_reg2loc").y + 60)
+                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("REGISTERS").y + 120),
+                new Point(compBounds.get("REGISTERS").x - 75, compBounds.get("REGISTERS").y + 120),
+                new Point(compBounds.get("REGISTERS").x - 75, compBounds.get("MUX_reg2loc").y + 65),
+                new Point(compBounds.get("MUX_reg2loc").x, compBounds.get("MUX_reg2loc").y + 65)
             ));
-        pathPoints.put(BusID.MUX_reg2loc_TO_REGISTERS_READ2, 
-            Arrays.asList(
-                new Point(compBounds.get("MUX_reg2loc").x + compBounds.get("MUX_reg2loc").width, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height / 2),
-                new Point(compBounds.get("REGISTERS").x, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height / 2) 
-            )); 
+        
         pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE, 
             Arrays.asList(
-                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
                 new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
-                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("REGISTERS").y + 100),
-                new Point(compBounds.get("REGISTERS").x, compBounds.get("REGISTERS").y + 100)
+                new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("REGISTERS").y + 120),
+                new Point(compBounds.get("REGISTERS").x, compBounds.get("REGISTERS").y + 120)
             ));
         pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND, Arrays.asList(
-            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
             new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
             new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("SIGN_EXTEND").y + compBounds.get("SIGN_EXTEND").height / 2),
             new Point(compBounds.get("SIGN_EXTEND").x, compBounds.get("SIGN_EXTEND").y + compBounds.get("SIGN_EXTEND").height / 2) 
         ));
         pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_ALU_CONTROL, Arrays.asList(
-            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
             new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
             new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("SIGN_EXTEND").y + compBounds.get("SIGN_EXTEND").height / 2),
             new Point(compBounds.get("SIGN_EXTEND").x - 20, compBounds.get("SIGN_EXTEND").y + compBounds.get("SIGN_EXTEND").height / 2),
@@ -352,12 +358,15 @@ public class DatapathPanel extends JPanel {
             new Point(compBounds.get("ALU_CONTROL").x, compBounds.get("ALU_CONTROL").y + compBounds.get("ALU_CONTROL").height / 2)
         ));
         pathPoints.put(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT, Arrays.asList(
-            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
             new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("INSTRUCTION_MEMORY").y + compBounds.get("INSTRUCTION_MEMORY").height / 2),
             new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("CONTROL_UNIT").y + compBounds.get("CONTROL_UNIT").height / 2),
             new Point(compBounds.get("CONTROL_UNIT").x, compBounds.get("CONTROL_UNIT").y + compBounds.get("CONTROL_UNIT").height / 2) 
         ));
-
+        pathPoints.put(BusID.MUX_reg2loc_TO_REGISTERS_READ2, 
+            Arrays.asList(
+                new Point(compBounds.get("MUX_reg2loc").x + compBounds.get("MUX_reg2loc").width, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height / 2),
+                new Point(compBounds.get("REGISTERS").x, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height / 2) 
+            )); 
         pathPoints.put(BusID.MUX_ALUsrc_TO_ALU, Arrays.asList(
             new Point(compBounds.get("MUX_ALUsrc").x + compBounds.get("MUX_ALUsrc").width, compBounds.get("MUX_ALUsrc").y + compBounds.get("MUX_ALUsrc").height / 2),
             new Point(compBounds.get("ALU").x, compBounds.get("MUX_ALUsrc").y + compBounds.get("MUX_ALUsrc").height / 2)        
@@ -449,9 +458,9 @@ public class DatapathPanel extends JPanel {
             new Point(compBounds.get("CONTROL_UNIT").x + compBounds.get("CONTROL_UNIT").width, compBounds.get("CONTROL_UNIT").y + 10),
             new Point(compBounds.get("CONTROL_UNIT").x + compBounds.get("CONTROL_UNIT").width + 20, compBounds.get("CONTROL_UNIT").y + 10),
             new Point(compBounds.get("CONTROL_UNIT").x + compBounds.get("CONTROL_UNIT").width + 20, compBounds.get("CONTROL_UNIT").y - 20),
-            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("CONTROL_UNIT").y - 20),
-            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 20, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height + 20),
-            new Point(compBounds.get("MUX_reg2loc").x + compBounds.get("MUX_reg2loc").width / 2, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height + 20),
+            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 10, compBounds.get("CONTROL_UNIT").y - 20),
+            new Point(compBounds.get("INSTRUCTION_MEMORY").x + compBounds.get("INSTRUCTION_MEMORY").width + 10, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height + 40),
+            new Point(compBounds.get("MUX_reg2loc").x + compBounds.get("MUX_reg2loc").width / 2, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height + 40),
             new Point(compBounds.get("MUX_reg2loc").x + compBounds.get("MUX_reg2loc").width / 2, compBounds.get("MUX_reg2loc").y + compBounds.get("MUX_reg2loc").height) 
         ));
         pathPoints.put(BusID.CONTROL_UNCOND_TO_OR_GATE, Arrays.asList(
@@ -497,8 +506,8 @@ public class DatapathPanel extends JPanel {
         ));
         pathPoints.put(BusID.CONTROL_REGWRITE_TO_REGISTERS, Arrays.asList(
             new Point(compBounds.get("CONTROL_UNIT").x + compBounds.get("CONTROL_UNIT").width, compBounds.get("CONTROL_UNIT").y + 170),
-            new Point(compBounds.get("REGISTERS").x + compBounds.get("REGISTERS").width / 2, compBounds.get("CONTROL_UNIT").y + 170),
-            new Point(compBounds.get("REGISTERS").x + compBounds.get("REGISTERS").width / 2, compBounds.get("REGISTERS").y) 
+            new Point(compBounds.get("REGISTERS").x + compBounds.get("REGISTERS").width - 30, compBounds.get("CONTROL_UNIT").y + 170),
+            new Point(compBounds.get("REGISTERS").x + compBounds.get("REGISTERS").width - 30, compBounds.get("REGISTERS").y) 
         ));
 
         for (Datapath.Path path : datapath.getPaths()) {
@@ -565,6 +574,11 @@ public class DatapathPanel extends JPanel {
                 path.getDestination() == Datapath.Component.REGISTERS && 
                 path.getDestinationInput().equals("Read\nRegister 1")) {
             return BusID.INSTRUCTION_MEMORY_TO_REGISTERS_READ1;
+        } 
+        else if (path.getSource() == Datapath.Component.INSTRUCTION_MEMORY && 
+                path.getDestination() == Datapath.Component.REGISTERS && 
+                path.getSourceOutput().equals("Instruction\n[31-0]")) {
+            return BusID.INSTRUCTION_MEMORY_;
         } 
         
         // else if (path.getSource() == Datapath.Component.INSTRUCTION_MEMORY && 
@@ -736,18 +750,52 @@ public class DatapathPanel extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
+        // g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // g2d.setFont(new Font("Arial", Font.PLAIN, 12));
+
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setFont(new Font("Arial", Font.PLAIN, 12));
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        g2d.setFont(new Font("Segoe UI", Font.PLAIN, 12));
 
         // Draw components
+        // for (ComponentInfo comp : components) {
+        //     drawComponent(g2d, comp);
+        // }
         for (ComponentInfo comp : components) {
-            drawComponent(g2d, comp);
+            drawComponentWithShadow(g2d, comp);
         }
 
         // Draw buses (paths)
         for (BusInfo bus : buses) {
             drawBus(g2d, bus);
         }
+    }
+
+    /**
+     * Draws a component with a soft drop shadow for a 3D effect.
+     * @param g2d Graphics2D context.
+     * @param compInfo ComponentInfo object.
+     */
+    private void drawComponentWithShadow(Graphics2D g2d, ComponentInfo compInfo) {
+        // Draw shadow first
+        g2d.setColor(SHADOW_COLOR);
+        ComponentID id = ComponentID.valueOf(compInfo.id);
+        BufferedImage img = inactiveImages.get(id); // Use any image just for the shape
+
+        if (img != null) {
+            // Draw a blurred or offset shadow if desired, here we just use an offset solid color
+            g2d.drawImage(img, compInfo.x + SHADOW_OFFSET, compInfo.y + SHADOW_OFFSET,
+                          compInfo.width, compInfo.height, null);
+        } else {
+            // Fallback for missing images
+            g2d.fillRect(compInfo.x + SHADOW_OFFSET, compInfo.y + SHADOW_OFFSET,
+                         compInfo.width, compInfo.height);
+        }
+        
+        // Draw the actual component on top of the shadow
+        drawComponent(g2d, compInfo);
     }
 
     /**
@@ -761,14 +809,14 @@ public class DatapathPanel extends JPanel {
             boolean isActive = activeComponents.contains(id.name());
             BufferedImage img = isActive ? activeImages.get(id) : inactiveImages.get(id);
 
-            if (isActive && img == null) {
-                img = inactiveImages.get(id); // Fallback to inactive image
-            }
+            // if (isActive && img == null) {
+            //     img = inactiveImages.get(id); // Fallback to inactive image
+            // }
 
             if (img != null) {
                 g2d.drawImage(img, compInfo.x, compInfo.y, compInfo.width, compInfo.height, this);
             } else {
-                g2d.setColor(isActive ? Color.YELLOW : Color.RED);
+                g2d.setColor(isActive ? Color.YELLOW : Color.LIGHT_GRAY);
                 g2d.fillRect(compInfo.x, compInfo.y, compInfo.width, compInfo.height);
                 g2d.setColor(Color.BLACK);
                 g2d.drawRect(compInfo.x, compInfo.y, compInfo.width, compInfo.height);
@@ -841,86 +889,163 @@ public class DatapathPanel extends JPanel {
             isBusHighlighted = false;
         }
 
-        Color lineColor = isBusHighlighted ? HIGHLIGHT_BUS_COLOR : busColor;
-        Stroke lineStroke = isBusHighlighted ? HIGHLIGHT_BUS_STROKE : 
-            (busInfo.thickness > 0) ? new BasicStroke(busInfo.thickness) : DEFAULT_BUS_STROKE;
+        Color lineColor = isBusHighlighted ? HIGHLIGHT_BUS_COLOR : DEFAULT_BUS_COLOR;
+        Stroke lineStroke = isBusHighlighted ? HIGHLIGHT_BUS_STROKE : DEFAULT_BUS_STROKE;
         g2d.setColor(lineColor);
         g2d.setStroke(lineStroke);
 
-        Point prevPoint = null;
-        for (Point point : busInfo.path) {
-            if (prevPoint != null) {
-                g2d.drawLine(prevPoint.x, prevPoint.y, point.x, point.y);
-            }
-            prevPoint = point;
+
+        for (int i = 0; i < busInfo.path.size() - 1; i++) {
+            Point p1 = busInfo.path.get(i);
+            Point p2 = busInfo.path.get(i + 1);
+            g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
         }
 
-        if (prevPoint != null && busInfo.path.size() >= 2) {
-            Point secondLastPoint = busInfo.path.get(busInfo.path.size() - 2);
-            // Draw arrow if configured
-            if (busDrawArrow.getOrDefault(id, true)) {
-                drawArrowHead(g2d, prevPoint, secondLastPoint, lineColor);
-            }
-
-            Set<LabelPlacement> placements = busLabelPlacements.getOrDefault(id, new HashSet<>());
-            FontMetrics fm = g2d.getFontMetrics();
-            int textHeight = fm.getHeight();
-
-            // Source label
-            
-            String label = busSourceLabels.get(id);
-            String[] lines = label.split("\\n");
-            if (label != null && !label.isEmpty()) {
-                int labelX, labelY;
-                if ("Read\nData 1".equals(label) || "Read\nData 2".equals(label) ||
-                    "Zero".equals(label) || "ALU\nResult".equals(label) || "Read\nData".equals(label)) {
-                    Point startPoint = busInfo.path.get(0);
-                    labelX = startPoint.x - 40; 
-                    labelY = startPoint.y - textHeight / 2 + 2;
-                    g2d.setColor(Color.BLACK);
-                }
-                else {
-                    Point startPoint = busInfo.path.get(0);
-                    labelX = startPoint.x + 5; 
-                    labelY = startPoint.y - 2;
-                    g2d.setColor(Color.BLACK);
-                } 
-                for (String line : lines) {
-                    g2d.drawString(line, labelX, labelY);
-                    labelY += fm.getHeight();
-                }
-            }
-            
-
-            // Destination label
-            int labelX_2, labelY_2;
-            String label_2 = busDestinationLabels.get(id);
-            String[] lines_2 = label_2.split("\\n");
-            if (label_2 != null && !label_2.isEmpty()) {
-                labelX_2 = prevPoint.x + 5; 
-                labelY_2 = prevPoint.y + textHeight / 2;
-                g2d.setColor(Color.BLACK);
-                for (String line_2 : lines_2) {
-                    g2d.drawString(line_2, labelX_2, labelY_2);
-                    labelY_2 += fm.getHeight();
-                }
-            }
-
-            // Animated data value label along path
-            if (isBusHighlighted && busDataValues.containsKey(id.name()) && busAnimationProgress.containsKey(id.name())) {
-                String dataValue = busDataValues.get(id.name());
-                if (dataValue != null && !dataValue.isEmpty()) {
-                    float progress = busAnimationProgress.get(id.name());
-                    int textWidth = fm.stringWidth(dataValue);
-                    Point position = getPositionAlongPath(busInfo.path, progress);
-                    int labelX = position.x - textWidth / 2;
-                    int labelY = position.y;
-                    g2d.setColor(new Color(165, 56, 96));
-                    g2d.drawString(dataValue, labelX, labelY);
-                }
-            }
-            
+        Point endPoint = busInfo.path.get(busInfo.path.size() - 1);
+        Point secondLastPoint = busInfo.path.get(busInfo.path.size() - 2);
+        
+        // Draw improved arrowhead if configured
+        if (busDrawArrow.getOrDefault(id, true)) {
+            drawArrowHead(g2d, endPoint, secondLastPoint, lineColor);
         }
+
+        g2d.setStroke(new BasicStroke(1)); // Reset stroke for labels
+
+        // Draw Source Label (handles single or multi-line)
+        String sourceLabel = busSourceLabels.get(id);
+        if (sourceLabel != null && !sourceLabel.isEmpty()) {
+            Point startPoint = busInfo.path.get(0);
+            if (sourceLabel.contentEquals("Instruction [31-21]")) {
+                startPoint = new Point(startPoint.x + 50, startPoint.y - 325); // Adjust position slightly
+            }
+            else if (sourceLabel.contentEquals("Instruction [9-5]")) {
+                startPoint = new Point(startPoint.x + 50, startPoint.y - 200); 
+            }
+            else if (sourceLabel.contentEquals("Instruction [20-16]")) {
+                startPoint = new Point(startPoint.x + 50, startPoint.y - 170); 
+            }
+            else if (sourceLabel.contentEquals("Instruction [4-0]")) {
+                startPoint = new Point(startPoint.x + 50, startPoint.y - 100); 
+            }
+            else if (sourceLabel.contentEquals("Instruction [31-0]")) {
+                startPoint = new Point(startPoint.x + 50, startPoint.y + 20); 
+            }
+            else if (sourceLabel.contentEquals("Instruction [31-21] ")) {
+                startPoint = new Point(startPoint.x + 250, startPoint.y + 100); 
+            }
+            // Anchor the label's right edge to the start of the bus line
+            drawTextWithBackground(g2d, sourceLabel, startPoint.x - 5, startPoint.y, false, isBusHighlighted);
+        }
+
+        // Draw Destination Label (handles single or multi-line)
+        String destLabel = busDestinationLabels.get(id);
+        if (destLabel != null && !destLabel.isEmpty()) {
+            // Anchor the label's left edge to the end of the bus line
+            drawTextWithBackground(g2d, destLabel, endPoint.x + 5, endPoint.y, true, isBusHighlighted);
+        }
+
+        // Animated data value label along path (this part remains the same)
+        if (isBusHighlighted && busDataValues.containsKey(id.name()) && busAnimationProgress.containsKey(id.name())) {
+            String dataValue = busDataValues.get(id.name());
+            if (dataValue != null && !dataValue.isEmpty()) {
+                float rawProgress = busAnimationProgress.get(id.name());
+                float easedProgress = easeInOutCubic(rawProgress);
+                Point position = getPositionAlongPath(busInfo.path, easedProgress);
+
+                // This call also works for single or multi-line data values if you ever need it
+                // The 'true' for alignLeft centers the box around the 'x' anchor point.
+                drawTextWithBackground(g2d, dataValue, position.x, position.y, true, true);
+            }
+        }
+        
+    }
+    /**
+     * Draws a multi-line string with a semi-transparent rounded rectangle background.
+     * The text is centered horizontally within the rectangle. The entire block is
+     * centered vertically around the anchor 'y' coordinate.
+     *
+     * @param g2d           Graphics context
+     * @param text          The text to draw, may contain '\n' for newlines.
+     * @param x             The anchor x-coordinate for the rectangle's position.
+     * @param y             The anchor y-coordinate for the rectangle's position.
+     * @param alignLeft     If true, rectangle's left edge is at 'x'; if false, right edge is at 'x'.
+     * @param isHighlighted If true, uses the highlight color for text.
+     */
+    private void drawTextWithBackground(Graphics2D g2d, String text, int x, int y, boolean alignLeft, boolean isHighlighted) {
+        // 1. Split text into lines
+        String[] lines = text.split("\\n");
+        if (lines.length == 0) {
+            return; // Nothing to draw
+        }
+
+        FontMetrics fm = g2d.getFontMetrics();
+        int textHeight = fm.getHeight();
+        int padding = 5; // Increased padding slightly for better spacing
+
+        // 2. Calculate dimensions for the background rectangle
+        int maxWidth = 0;
+        for (String line : lines) {
+            maxWidth = Math.max(maxWidth, fm.stringWidth(line));
+        }
+
+        // Total height calculation: N lines high, remove extra space from last line, add padding
+        int totalTextBlockHeight = (lines.length * textHeight) - fm.getLeading();
+        
+        int rectW = maxWidth + (padding * 2);
+        int rectH = totalTextBlockHeight + padding;
+
+        // Center the entire block vertically around the anchor 'y'
+        int rectY = y - (rectH / 2);
+        
+        // Position the block horizontally based on the alignment flag
+        int rectX = alignLeft ? x : x - rectW;
+
+        // 3. Draw the background
+        g2d.setColor(LABEL_BACKGROUND_COLOR);
+        g2d.fill(new RoundRectangle2D.Float(rectX, rectY, rectW, rectH, 10, 10));
+
+        // 4. Draw each line of text, centered within the background
+        g2d.setColor(isHighlighted ? HIGHLIGHT_BUS_COLOR : Color.BLACK);
+        
+        // Start drawing from the top of the rectangle + padding + font ascent
+        int currentY = rectY + padding / 2 + fm.getAscent();
+
+        for (String line : lines) {
+            int lineWidth = fm.stringWidth(line);
+            // Center each line horizontally inside the rectangle
+            int lineX = rectX + (rectW - lineWidth) / 2;
+            g2d.drawString(line, lineX, currentY);
+            currentY += textHeight; // Move down for the next line
+        }
+    }
+    
+    /**
+     * Easing function for smooth animation.
+     */
+    private float easeInOutCubic(float x) {
+        return x < 0.5f ? 4 * x * x * x : 1 - (float) Math.pow(-2 * x + 2, 3) / 2;
+    }
+    /**
+     * Draws a solid, filled arrowhead.
+     */
+    private void drawArrowHead(Graphics2D g2d, Point tip, Point tail, Color color) {
+        g2d.setColor(color);
+        double angle = Math.atan2(tip.y - tail.y, tip.x - tail.x);
+        double arrowAngle = Math.toRadians(25); // The angle of the arrowhead wings
+
+        int[] xPoints = new int[3];
+        int[] yPoints = new int[3];
+
+        xPoints[0] = tip.x;
+        yPoints[0] = tip.y;
+
+        xPoints[1] = (int) (tip.x - ARROW_HEAD_SIZE * Math.cos(angle - arrowAngle));
+        yPoints[1] = (int) (tip.y - ARROW_HEAD_SIZE * Math.sin(angle - arrowAngle));
+
+        xPoints[2] = (int) (tip.x - ARROW_HEAD_SIZE * Math.cos(angle + arrowAngle));
+        yPoints[2] = (int) (tip.y - ARROW_HEAD_SIZE * Math.sin(angle + arrowAngle));
+        
+        g2d.fillPolygon(xPoints, yPoints, 3);
     }
     public void setActiveComponentsAndBuses(List<String> activeComponents, List<String> activeBuses,
                                             Map<String, String> busDataValues) {
@@ -998,23 +1123,5 @@ public class DatapathPanel extends JPanel {
 
         // If progress is 1.0, return the last point
         return path.get(path.size() - 1);
-    }
-
-    /**
-     * Draws an arrowhead at the end of the bus.
-     * @param g2d Graphics2D context.
-     * @param endPoint End point of the line.
-     * @param secondLastPoint Second-to-last point for direction.
-     * @param color Arrowhead color.
-     */
-    private void drawArrowHead(Graphics2D g2d, Point endPoint, Point secondLastPoint, Color color) {
-        g2d.setColor(color);
-        double angle = Math.atan2(endPoint.y - secondLastPoint.y, endPoint.x - secondLastPoint.x);
-        g2d.drawLine(endPoint.x, endPoint.y,
-            (int) (endPoint.x - ARROW_HEAD_SIZE * Math.cos(angle - Math.PI / 6)),
-            (int) (endPoint.y - ARROW_HEAD_SIZE * Math.sin(angle - Math.PI / 6)));
-        g2d.drawLine(endPoint.x, endPoint.y,
-            (int) (endPoint.x - ARROW_HEAD_SIZE * Math.cos(angle + Math.PI / 6)),
-            (int) (endPoint.y - ARROW_HEAD_SIZE * Math.sin(angle + Math.PI / 6)));
     }
 }
