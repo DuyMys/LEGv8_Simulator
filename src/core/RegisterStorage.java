@@ -30,5 +30,6 @@ public class RegisterStorage {
         for (int i = 0; i < registers.length; i++) {
             registers[i] = 0; 
         }
+        registers[31] = 0; // Ensure XZR remains 0
     }
 }
