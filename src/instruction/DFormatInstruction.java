@@ -56,4 +56,13 @@ public class DFormatInstruction extends Instruction {
     public int getImmediate_I() {
         return getAddress_D(); // Trả về address như immediate
     }
+    /**
+     * Determines if this D-format instruction is a load instruction.
+     * @return true if the instruction is a load, false otherwise.
+     */
+    public boolean isLoad() {
+        String mnemonic = getDefinition().getMnemonic().toUpperCase();
+        // Common LEGv8 load mnemonics: LDUR, LDURB, LDURH, LDURSW, LDR, LDRB, LDRH, LDRSW
+        return mnemonic.startsWith("L");
+    }
 }
