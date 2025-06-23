@@ -167,4 +167,17 @@ public abstract class Instruction {
         return disassemble() + "\n" + formatBitSet(bytecode);
     }
 
-} 
+    /**
+     * @return The instruction as a hex string.
+     */
+    public String getInstructionHex() {
+        BitSet bytecode = getBytecode();
+        int instructionCode = 0;
+        for (int i = 0; i < 32; i++) {
+            if (bytecode.get(i)) {
+                instructionCode |= (1 << i);
+            }
+        }
+        return String.format("0x%08X", instructionCode);
+    }
+}
