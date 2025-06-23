@@ -175,17 +175,27 @@ public class Datapath {
         ));
         // Instruction memory paths
         paths.add(new Path(
-            Component.INSTRUCTION_MEMORY, "Instruction",
+            Component.INSTRUCTION_MEMORY, "Instruction\n[31-0]",
+            Component.REGISTERS, "",
+            "Provides register index for first read operand."
+        ));
+        paths.add(new Path(
+            Component.INSTRUCTION_MEMORY, "Instruction [9-5]",
             Component.REGISTERS, "Read\nRegister 1",
             "Provides register index for first read operand."
         ));
         paths.add(new Path(
-            Component.INSTRUCTION_MEMORY, "Instruction",
-            Component.REGISTERS, "Read\nRegister 2",
-            "Provides register index for second read operand."
+            Component.INSTRUCTION_MEMORY, "Instruction [20-16]",
+            Component.MUX_reg2loc, "0",
+            "Provides register index for second read operand (if applicable)."
         ));
+        // paths.add(new Path(
+        //     Component.INSTRUCTION_MEMORY, "Instruction",
+        //     Component.REGISTERS, "Read\nRegister 2",
+        //     "Provides register index for second read operand."
+        // ));
         paths.add(new Path(
-            Component.INSTRUCTION_MEMORY, "Instruction",
+            Component.INSTRUCTION_MEMORY, "Instruction [4-0]",
             Component.REGISTERS, "Write\nRegister",
             "Provides register index for write-back."
         ));
@@ -196,15 +206,19 @@ public class Datapath {
             "Provides instruction to control unit for generating control signals."
         ));
         paths.add(new Path(
-            Component.INSTRUCTION_MEMORY, "Instruction",
+            Component.INSTRUCTION_MEMORY, "Instruction [31-0]",
             Component.SIGN_EXTEND, "",
             "Sends immediate field to sign-extend unit."
         ));
         paths.add(new Path(
-            Component.INSTRUCTION_MEMORY, "Instruction",
+            Component.INSTRUCTION_MEMORY, "Instruction [31-21] ",
             Component.ALU_CONTROL, "",
             "Sends instruction to ALU control unit for operation decoding."
         ));
+        paths.add(new Path(
+            Component.INSTRUCTION_MEMORY, "",
+            Component.MUX_reg2loc, "1",
+            "Sends instruction to MUX for selecting register or immediate for write-back."));
 
         // Sign extend paths
         paths.add(new Path(
@@ -249,7 +263,7 @@ public class Datapath {
             "Provides constant 4 to Adder 1 for PC increment."
         ));
         paths.add(new Path(
-            Component.ADD_2, "",
+            Component.ADD_2, "ALU\nResult",
             Component.MUX_PCSRC, "1",
             "Sends branch target address to MUX for PC selection."
         ));
@@ -280,7 +294,7 @@ public class Datapath {
             "Generates ALU control signals based on instruction type."
         ));
         paths.add(new Path(
-            Component.CONTROL_UNIT, "",
+            Component.CONTROL_UNIT, "ALUSrc",
             Component.MUX_ALUsrc, "",
             "Generates ALU source select signal for MUX input."
         ));
@@ -323,6 +337,11 @@ public class Datapath {
             Component.ALU_CONTROL, "",
             Component.ALU, "",
             "Sends decoded ALU operation to ALU for execution."
+        ));
+        paths.add(new Path(
+            Component.MUX_reg2loc, "",
+            Component.REGISTERS, "Read\nRegister 2",
+            "Sends selected data (register or immediate) to registers for write-back."
         ));
     }
 
