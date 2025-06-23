@@ -43,4 +43,15 @@ public class BFormatInstruction extends Instruction {
     public int getImmediate_I() {
         throw new UnsupportedOperationException("getImmediate_I not supported for B format");
     }
+    /**
+     * Calculates the branch target address for B-format instructions.
+     * @param pc The current program counter (address of this instruction).
+     * @return The branch target address.
+     */
+    public int getBranchAddress(int pc) {
+        // Sign-extend the 26-bit offset
+        int signedOffset = (offset << 6) >> 6; // Sign-extend from 26 bits
+        // LEGv8 B-format: offset is in instructions, shift left by 2 to get byte offset
+        return pc + (signedOffset << 2);
+    }
 }
