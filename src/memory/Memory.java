@@ -80,6 +80,28 @@ public class Memory {
             throw new MemoryAccessException("Dia chi phai can chinh theo " + size + " byte: 0x" + Long.toHexString(address));
         }
     }
+    
+    /**
+     * Scans the memory and returns a map of all non-zero 64-bit long values.
+     * This is useful for displaying the memory state in the GUI without showing
+     * millions of empty addresses.
+     *
+     * @return A Map where the key is the address and the value is the 64-bit data at that address.
+     */
+    public Map<Long, Long> getAllData() {
+        Map<Long, Long> dataMap = new HashMap<>();
+        // Iterate through memory in 8-byte chunks (the size of a long)
+        for (long address = 0; address < memory.length; address += 8) {
+            // Use the existing readLong method, but handle potential unaligned access at the end
+            if (address + 8 <= memory.length) {
+                long value = read(address, 8);
+                if (value != 0) {
+                    dataMap.put(address, value);
+                }
+            }
+        }
+        return dataMap;
+    }
 
     /**
      * Trả về chuỗi biểu diễn bộ nhớ (chỉ hiển thị giá trị khác 0).
