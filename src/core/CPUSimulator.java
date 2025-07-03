@@ -219,18 +219,56 @@ public class CPUSimulator {
     // /**
     //  * Executes ONE micro-step.
     //  */
+    // public void step() {
+    //     if (isFinished) return;
 
+    //     // If the queue is empty, it means we are at the start of a new instruction.
+    //     // Generate the micro-steps for it.
+    //     if (microStepQueue.isEmpty()) {
+    //         if (pc >= program.size()) {
+    //             isFinished = true;
+    //             lastExecutedInstruction = "Execution Complete";
+    //             clearDatapathActivity();
+    //             return;
+    //         }
+    //         Instruction instruction = program.get(pc);
+    //         lastExecutedInstruction = instruction.disassemble();
+    //         generateMicroStepsFor(instruction);
+    //     }
+        
+    //     // Execute the next micro-step in the queue
+    //     if (currentMicroStepIndex < microStepQueue.size()) {
+    //         MicroStep step = microStepQueue.get(currentMicroStepIndex);
+            
+    //         // Set the datapath visualization for THIS step
+    //         this.activeComponents = step.getActiveComponents();
+    //         this.activeBuses = step.getActiveBuses();
+    //         this.busDataValues = step.getBusDataValues();
+            
+    //         // Execute the action associated with this step (e.g., the actual register write)
+    //         step.executeAction();
+
+    //         currentMicroStepIndex++;
+    //     }
+        
+    //     // If we just finished the last micro-step, advance the PC and clear the queue
+    //     if (currentMicroStepIndex >= microStepQueue.size()) {
+    //         // PC is advanced by the branch micro-step or by this default
+    //         if (!lastExecutedInstruction.startsWith("B ") && !lastExecutedInstruction.startsWith("CB")) {
+    //             pc++;
+    //         }
+    //         microStepQueue.clear();
+    //         currentMicroStepIndex = 0;
+            
+    //         if (pc >= program.size()) {
+    //             isFinished = true;
+    //         }
+    //     }
+    // }
     public void step() {
         if (isFinished) return;
 
-        // --- Thực thi hành động của bước TRƯỚC ĐÓ ---
-        // Điều này đảm bảo hành động chỉ được thực hiện sau khi bước đó đã được hiển thị ít nhất một lần.
-        if (previousStepAction != null) {
-            previousStepAction.run();
-            previousStepAction = null; // Chỉ chạy một lần
-        }
-
-        // Nếu hàng đợi rỗng, đã đến lúc xử lý lệnh tiếp theo.
+        // If the queue is empty, start processing the next instruction
         if (microStepQueue.isEmpty()) {
             if (pc >= program.size()) {
                 isFinished = true;
@@ -244,30 +282,29 @@ public class CPUSimulator {
             currentMicroStepIndex = 0; 
         }
         
+        // Execute the current micro-step
         if (currentMicroStepIndex < microStepQueue.size()) {
             MicroStep currentStep = microStepQueue.get(currentMicroStepIndex);
             
+            // Set visualization for this step
             this.activeComponents = currentStep.getActiveComponents();
             this.activeBuses = currentStep.getActiveBuses();
             this.busDataValues = currentStep.getBusDataValues();
             
-            this.previousStepAction = currentStep.getAction();
+            // Execute the action immediately (not delayed)
+            if (currentStep.getAction() != null) {
+                currentStep.getAction().run();
+            }
 
             currentMicroStepIndex++;
         }
         
-        // Nếu chúng ta vừa hiển thị xong bước cuối cùng, chuẩn bị cho lệnh tiếp theo
-        else { // currentMicroStepIndex >= microStepQueue.size()
-            // Xóa hàng đợi để lần nhấn Step tiếp theo sẽ tạo các bước cho lệnh mới.
+        // If we finished all micro-steps, prepare for next instruction
+        if (currentMicroStepIndex >= microStepQueue.size()) {
             microStepQueue.clear();
-
-            // PC được cập nhật bởi chính hành động của bước cuối cùng (ví dụ, lệnh B),
-            // hoặc bởi logic mặc định ở đây.
-            // Chú ý: Việc tăng PC bây giờ nên là một phần của "hành động".
-            // Chúng ta sẽ sửa lại logic này một chút.
+            currentMicroStepIndex = 0;
             
-            // Logic tăng PC mặc định.
-            // Hành động của lệnh B hoặc CB sẽ ghi đè PC, nên thứ tự không quá quan trọng.
+            // Advance PC for non-branch instructions
             if (!isBranchInstruction(lastExecutedInstruction)) {
                 pc++;
             }
@@ -425,10 +462,6 @@ public class CPUSimulator {
                     if (signals.isFlagWrite()) {
                         updateFlags(aluResult);
                     }
-                    // Thêm hành động tăng PC vào đây!
-                    if (!isBranchInstruction(mnemonic)) {
-                        pc++;
-                    }
                 }
             ));
         } else {
@@ -514,10 +547,6 @@ public class CPUSimulator {
                     registerFile.writeRegister(rd, result, true);
                     if (signals.isFlagWrite()) {
                         updateFlags(aluResult);
-                    }
-                    // Thêm hành động tăng PC vào đây!
-                    if (!isBranchInstruction(mnemonic)) {
-                        pc++;
                     }
                 }
             ));
@@ -692,7 +721,7 @@ public class CPUSimulator {
             List.of("ALU", "MUX_memtoreg"), // Component tham gia có thể là Shifter hoặc ALU
             List.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
             Map.of(
-                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("Kết quả 64-bit: %d (0x%X)", result, result)
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("0x%X", result)
             ),
             null
         ));
@@ -773,13 +802,5 @@ public class CPUSimulator {
 
     public RegisterFileController getRegisterFile() {
         return registerFile;
-    }
-
-    public ArithmeticLogicUnit getAlu() {
-        return alu;
-    }
-
-    public ControlUnit getControlUnit() {
-        return controlUnit;
     }
 }
