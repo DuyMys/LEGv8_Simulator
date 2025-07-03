@@ -214,7 +214,7 @@ private JFrame datapathFrame;
         // Memory Table with Tab Selector
         JPanel memoryPanel = new JPanel(new BorderLayout());
         memoryPanel.setBackground(BACKGROUND_COLOR);
-        String[] memoryTabs = { "Data", "Stack", "Text" };
+        String[] memoryTabs = {/*  "Data",*/ "Stack" /* , "Text"*/ };
         memoryTabSelector = new JComboBox<>(memoryTabs);
         memoryTabSelector.setSelectedIndex(0);
         memoryTabSelector.setPreferredSize(new Dimension(255, 30));
@@ -330,7 +330,7 @@ private JFrame datapathFrame;
         datapathButton.addActionListener(e -> {
     datapathFrame = new JFrame("LEGv8 Datapath Visualization");
     datapathFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-    datapathFrame.setSize(1000, 700);
+    datapathFrame.setSize(1650, 650);
 
     datapathPanel = new DatapathPanel();
 
@@ -340,12 +340,12 @@ private JFrame datapathFrame;
     JButton backDatapathButton = new JButton("Back Datapath");
     controlPanel.add(backDatapathButton);
     controlPanel.add(stepDatapathButton);
-JLabel currentInstructionLabel = new JLabel("Executing: ");
-controlPanel.add(currentInstructionLabel);
+    JLabel currentInstructionLabel = new JLabel("Executing: ");
+    controlPanel.add(currentInstructionLabel);
 
     stepDatapathButton.addActionListener(ev -> {
-        currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
         simulator.step();
+        currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
         datapathPanel.setActiveComponentsAndBuses(
             simulator.getActiveComponents(),
             simulator.getActiveBuses(),
@@ -494,13 +494,14 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
     // }
 
     private void restartProgram() {
+        simulator.reset();
+        
         populateInstructionTable();
         updateStatus();
         if (outputArea != null) {
             outputArea.append("Program restarted.\n");
         }
         simulator.getProgram().clear();
-        simulator.reset();
     }
 
     private void clearAll() {
@@ -538,7 +539,7 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
             String selectedTab = (String) memoryTabSelector.getSelectedItem();
             long baseAddress = switch (selectedTab) {
                 case "Stack" -> 0xFFFFFFF0L; // Giả định Stack bắt đầu từ 0xFFFFFFF0
-                case "Text" -> 0x10000000L;  // Giả định Text bắt đầu từ 0x10000000
+               // case "Text" -> 0x10000000L;  // Giả định Text bắt đầu từ 0x10000000
                 default -> 0L;               // Data bắt đầu từ 0x00000000
             };
             int step = 8; // Bước nhảy 8 byte (64-bit)
@@ -612,7 +613,7 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
                 instrStr = "INVALID";
             }
 
-            String source = instrStr;
+           // String source = instrStr;
             String meaning = "";
             try {
                 String[] parts = instrStr.split("[,\\s]+");
@@ -666,7 +667,7 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
                 meaning = "ERROR";
             }
 
-            model.addRow(new Object[] { lineNumber, addressStr, instrStr, source, meaning });
+            model.addRow(new Object[] { lineNumber, addressStr, instrStr, meaning });
             address += 4;
             lineNumber++;
         }
