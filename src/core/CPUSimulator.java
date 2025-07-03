@@ -343,13 +343,13 @@ public class CPUSimulator {
         ));
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
-            List.of("ADD_1", "MUX_PCSRC"),
-            List.of(
+            new ArrayList<>(List.of("ADD_1", "MUX_PCSRC")),
+            new ArrayList<>(List.of(
                 BusID.ADD_1_TO_MUX_PCSRC.name()
-            ),
-            Map.of(
+            )),
+            new HashMap<>(Map.of(
                 BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
-            ),
+            )),
             null
         ));
 
@@ -358,20 +358,20 @@ public class CPUSimulator {
         // The ALUSrc control signal is set to '1' to select the immediate value for the ALU.
         microStepQueue.add(new MicroStep(
             "Decode & Read Register",
-            List.of("CONTROL_UNIT", "REGISTERS", "MUX_ALUsrc"),
-            List.of(
+            new ArrayList<>(List.of("CONTROL_UNIT", "REGISTERS", "MUX_ALUsrc")),
+            new ArrayList<>(List.of(
                 BusID.INSTRUCTION_MEMORY_.name(),
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
                 BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(),                 
                 BusID.REGISTERS_TO_ALU_READ1.name(), 
                 BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name()
-            ),
-            Map.of(
+            )),
+            new HashMap<>(Map.of(
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), iInst.getInstructionHex(),
                 BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("Imm: %d", immediate),
                 BusID.REGISTERS_TO_ALU_READ1.name(), String.format("%s: %d", rn, rnValue),
                 BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name(), "ALUSrc: 1"
-            ),
+            )),
             null
         ));
 
@@ -380,26 +380,26 @@ public class CPUSimulator {
         // The ALU performs the operation (ADD/SUB) and outputs the result.
         microStepQueue.add(new MicroStep(
             "Execute (ALU Operation)",
-            List.of("SIGN_EXTEND", "MUX_ALUsrc"),
-            List.of(
+            new ArrayList<>(List.of("SIGN_EXTEND", "MUX_ALUsrc")),
+            new ArrayList<>(List.of(
                 BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name()
-            ),
-            Map.of(
+            )),
+            new HashMap<>(Map.of(
                 BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(immediate)
-            ),
+            )),
             null
         ));
         microStepQueue.add(new MicroStep(
             "Execute (ALU Operation)",
-            List.of("ALU", "MUX_ALUsrc"),
-            List.of(
+            new ArrayList<>(List.of("ALU", "MUX_ALUsrc")),
+            new ArrayList<>(List.of(
                 BusID.MUX_ALUsrc_TO_ALU.name(), 
                 BusID.ALU_TO_MUX_memtoreg_RESULT.name()
-            ),
-            Map.of(
+            )),
+            new HashMap<>(Map.of(
                 BusID.MUX_ALUsrc_TO_ALU.name() + " (Rn Value)", String.valueOf(rnValue),
                 BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("%d", result)
-            ),
+            )),
             null
         ));
 
@@ -409,11 +409,11 @@ public class CPUSimulator {
         if (signals.isRegWrite()) {
             microStepQueue.add(new MicroStep(
                 "4. Write-Back",
-                List.of("MUX_MEMTOREG", "REGISTERS"),
-                List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
-                Map.of(
+                new ArrayList<>(List.of("MUX_MEMTOREG", "REGISTERS")),
+                new ArrayList<>(List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name())),
+                new HashMap<>(Map.of(
                     BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.format("%d", result)
-                ),
+                )),
                 () -> {
                     registerFile.writeRegister(rd, result, true);
                     if (signals.isFlagWrite()) {
@@ -424,8 +424,8 @@ public class CPUSimulator {
         } else {
             microStepQueue.add(new MicroStep(
                 "4. Không ghi ngược",
-                List.of(), List.of(),
-                Map.of("INFO", String.format("%s.", mnemonic)),
+                new ArrayList<>(List.of()), new ArrayList<>(List.of()),
+                new HashMap<>(Map.of("INFO", String.format("%s.", mnemonic))),
                 () -> {
                     if (signals.isFlagWrite()) {
                         updateFlags(aluResult);
@@ -456,38 +456,38 @@ public class CPUSimulator {
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
-            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
-            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
-                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
-            Map.of(
+            new ArrayList<>(List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1")),
+            new ArrayList<>(List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name())),
+            new HashMap<>(Map.of(
                 BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
                 BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
-            ),
+            )),
             null
         ));
 
         // Step 2: Decode & Register Read
         microStepQueue.add(new MicroStep(
             "Decode & Read Registers",
-            List.of("CONTROL_UNIT", "REGISTERS"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+            new ArrayList<>(List.of("CONTROL_UNIT", "REGISTERS")),
+            new ArrayList<>(List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
                     BusID.REGISTERS_TO_ALU_READ1.name(), BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(),
-                    BusID.MUX_ALUsrc_TO_ALU.name()),
-            Map.of(
+                    BusID.MUX_ALUsrc_TO_ALU.name())),
+            new HashMap<>(Map.of(
                 BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue),
                 BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(), String.valueOf(rmValue)
-            ),
+            )),
             null
         ));
 
         // Step 3: Execute (ALU)
         microStepQueue.add(new MicroStep(
             "Execute (ALU Operation)",
-            List.of("ALU"),
-            List.of(BusID.REGISTERS_TO_ALU_READ1.name(), BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(), 
-                    BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
-            Map.of(
-                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result)),
+            new ArrayList<>(List.of("ALU")),
+            new ArrayList<>(List.of(BusID.REGISTERS_TO_ALU_READ1.name(), BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(), 
+                    BusID.ALU_TO_MUX_memtoreg_RESULT.name())),
+            new HashMap<>(Map.of(
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result))),
             null
         ));
 
@@ -495,11 +495,11 @@ public class CPUSimulator {
         if (signals.isRegWrite()) {
             microStepQueue.add(new MicroStep(
                 "Write-Back",
-                List.of("MUX_memtoreg", "REGISTERS"),
-                List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
+                new ArrayList<>(List.of("MUX_memtoreg", "REGISTERS")),
+                new ArrayList<>(List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
                         BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
-                        BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
-                Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+                        BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name())),
+                new HashMap<>(Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result))),
                 () -> {
                     registerFile.writeRegister(rd, result, true);
                     if (signals.isFlagWrite()) {
@@ -523,40 +523,40 @@ public class CPUSimulator {
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
-            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
-            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
-                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
-            Map.of(
+            new ArrayList<>(List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1")),
+            new ArrayList<>(List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name())),
+            new HashMap<>(Map.of(
                 BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
                 BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
-            ),
+            )),
             null
         ));
 
         // Step 2: Decode & Calculate Branch Target
         microStepQueue.add(new MicroStep(
             "Decode & Calculate Branch Target",
-            List.of("CONTROL_UNIT", "SIGN_EXTEND", "ADD_BRANCH"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+            new ArrayList<>(List.of("CONTROL_UNIT", "SIGN_EXTEND", "ADD_BRANCH")),
+            new ArrayList<>(List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
                     BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
                     BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), BusID.PC_TO_ADD_2.name(), 
                     BusID.SHIFT_LEFT_2_TO_ADD.name(),
-                    BusID.ADD_2_TO_MUX_PCSRC.name()),
-            Map.of(
+                    BusID.ADD_2_TO_MUX_PCSRC.name())),
+            new HashMap<>(Map.of(
                 BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), String.valueOf(offset),
                 BusID.ADD_2_TO_MUX_PCSRC.name(), String.format("0x%X", targetPc)
-            ),
+            )),
             null
         ));
 
         // Step 3: Branch (Update PC)
         microStepQueue.add(new MicroStep(
             "Branch (Update PC)",
-            List.of("MUX_PCSRC"),
-            List.of(BusID.CONTROL_UNCOND_TO_OR_GATE.name(), BusID.ADD_2_TO_MUX_PCSRC.name(),
+            new ArrayList<>(List.of("MUX_PCSRC")),
+            new ArrayList<>(List.of(BusID.CONTROL_UNCOND_TO_OR_GATE.name(), BusID.ADD_2_TO_MUX_PCSRC.name(),
                     BusID. OR_GATE_TO_MUX_PCSRC.name(),
-                    BusID.MUX_PCSRC_TO_PC.name()),
-            Map.of(BusID.MUX_PCSRC_TO_PC.name(), String.format("0x%X", targetPc * 4)),
+                    BusID.MUX_PCSRC_TO_PC.name())),
+            new HashMap<>(Map.of(BusID.MUX_PCSRC_TO_PC.name(), String.format("0x%X", targetPc * 4))),
             () -> this.pc = targetPc
         ));
     }
@@ -574,36 +574,36 @@ public class CPUSimulator {
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
-            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
-            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
-                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
-            Map.of(
+            new ArrayList<>(List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1")),
+            new ArrayList<>(List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name())),
+            new HashMap<>(Map.of(
                 BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
                 BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
-            ),
+            )),
             null
         ));
 
         // Step 2: Decode & Register Read
         microStepQueue.add(new MicroStep(
             "Decode & Read Register",
-            List.of("CONTROL_UNIT", "REGISTERS"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
-                    BusID.REGISTERS_TO_ALU_READ1.name()),
-            Map.of(BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue)),
+            new ArrayList<>(List.of("CONTROL_UNIT", "REGISTERS")),
+            new ArrayList<>(List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.REGISTERS_TO_ALU_READ1.name())),
+            new HashMap<>(Map.of(BusID.REGISTERS_TO_ALU_READ1.name(), String.valueOf(rnValue))),
             null
         ));
 
         // Step 3: Address Calculation
         microStepQueue.add(new MicroStep(
             "Address Calculation",
-            List.of("ALU", "SIGN_EXTEND", "MUX_ALUsrc"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
-                    BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), BusID.ALU_TO_DATA_MEMORY_ADDRESS.name()),
-            Map.of(
+            new ArrayList<>(List.of("ALU", "SIGN_EXTEND", "MUX_ALUsrc")),
+            new ArrayList<>(List.of(BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
+                    BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), BusID.ALU_TO_DATA_MEMORY_ADDRESS.name())),
+            new HashMap<>(Map.of(
                 BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm),
                 BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), String.valueOf(address)
-            ),
+            )),
             null
         ));
 
@@ -611,31 +611,31 @@ public class CPUSimulator {
         if (dInst.isLoad()) {
             microStepQueue.add(new MicroStep(
                 "Memory Read",
-                List.of("DATA_MEMORY", "MUX_memtoreg"),
-                List.of(BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), 
+                new ArrayList<>(List.of("DATA_MEMORY", "MUX_memtoreg")),
+                new ArrayList<>(List.of(BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), 
                         BusID.DATA_MEMORY_TO_MUX_memtoreg_READ.name(), 
-                        BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name()),
-                Map.of(BusID.DATA_MEMORY_TO_MUX_memtoreg_READ.name(), String.valueOf(data)),
+                        BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name())),
+                new HashMap<>(Map.of(BusID.DATA_MEMORY_TO_MUX_memtoreg_READ.name(), String.valueOf(data))),
                 null
             ));
 
             // Step 5: Write-Back (for LDUR)
             microStepQueue.add(new MicroStep(
                 "Write-Back",
-                List.of("REGISTERS"),
-                List.of(BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
-                        BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
-                Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(data)),
+                new ArrayList<>(List.of("REGISTERS")),
+                new ArrayList<>(List.of(BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                        BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name())),
+                new HashMap<>(Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(data))),
                 () -> registerFile.writeRegister(rt, data, true)
             ));
         } else {
             microStepQueue.add(new MicroStep(
                 "Memory Write",
-                List.of("DATA_MEMORY", "REGISTERS"),
-                List.of(BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), 
+                new ArrayList<>(List.of("DATA_MEMORY", "REGISTERS")),
+                new ArrayList<>(List.of(BusID.ALU_TO_DATA_MEMORY_ADDRESS.name(), 
                         BusID.REGISTERS_TO_DATA_MEMORY_WRITE_DATA.name(), 
-                        BusID.CONTROL_MEMWRITE_TO_DATA_MEMORY.name()),
-                Map.of(BusID.REGISTERS_TO_DATA_MEMORY_WRITE_DATA.name(), String.valueOf(data)),
+                        BusID.CONTROL_MEMWRITE_TO_DATA_MEMORY.name())),
+                new HashMap<>(Map.of(BusID.REGISTERS_TO_DATA_MEMORY_WRITE_DATA.name(), String.valueOf(data))),
                 () -> memory.write(address, data, 8)
             ));
         }
@@ -652,42 +652,42 @@ public class CPUSimulator {
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
-            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
-            List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
-                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name()),
-            Map.of(
+            new ArrayList<>(List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1")),
+            new ArrayList<>(List.of(BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+                    BusID.ADD_4_TO_ADD_1.name(), BusID.ADD_1_TO_MUX_PCSRC.name())),
+            new HashMap<>(Map.of(
                 BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
                 BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
-            ),
+            )),
             null
         ));
 
         // Step 2: Decode
         microStepQueue.add(new MicroStep(
             "Decode",
-            List.of("CONTROL_UNIT", "SIGN_EXTEND"),
-            List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
-                    BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name()),
-            Map.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm16)),
+            new ArrayList<>(List.of("CONTROL_UNIT", "SIGN_EXTEND")),
+            new ArrayList<>(List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name())),
+            new HashMap<>(Map.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm16))),
             null
         ));
 
         // Step 3: Write-Back
         microStepQueue.add(new MicroStep(
             "Execute",
-            List.of("ALU", "MUX_memtoreg"), // Component tham gia có thể là Shifter hoặc ALU
-            List.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
-            Map.of(
+            new ArrayList<>(List.of("ALU", "MUX_memtoreg")), // Component tham gia có thể là Shifter hoặc ALU
+            new ArrayList<>(List.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name())),
+            new HashMap<>(Map.of(
                 BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("0x%X", result)
-            ),
+            )),
             null
         ));
         // Step 4
         microStepQueue.add(new MicroStep(
             "Write-Back",
-            List.of("MUX_memtoreg", "REGISTERS"),
-            List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
-            Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+            new ArrayList<>(List.of("MUX_memtoreg", "REGISTERS")),
+            new ArrayList<>(List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name())),
+            new HashMap<>(Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result))),
             () -> registerFile.writeRegister(rd, result, true)
         ));
     }
@@ -698,7 +698,7 @@ public class CPUSimulator {
         pc = 0;
         registerFile.reset();
         memory.reset();
-        isFinished = true;
+        isFinished = false;
         microStepQueue.clear();
         currentMicroStepIndex = 0;
         clearDatapathActivity();
