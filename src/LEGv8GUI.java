@@ -1,7 +1,9 @@
 import core.*;
+import datapath.DatapathPanel;
 import instruction.Instruction;
 import instruction.InstructionConfigLoader;
 import memory.*;
+
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -11,6 +13,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
 public class LEGv8GUI {
+private DatapathPanel datapathPanel;
+private JFrame datapathFrame;
     private final CPUSimulator simulator;
     private JFrame frame;
     private JTextArea codeEditor;
@@ -75,18 +79,20 @@ public class LEGv8GUI {
         buttonPanel.setBackground(BACKGROUND_COLOR);
         JButton assembleButton = createStyledButton("Assemble");
         JButton runButton = createStyledButton("Run");
-        JButton stepBackButton = createStyledButton("Step Back");
-        JButton stepForwardButton = createStyledButton("Step Forward");
+        //JButton stepBackButton = createStyledButton("Step Back");
+        //JButton stepForwardButton = createStyledButton("Step Forward");
         JButton restartButton = createStyledButton("Restart");
         JButton clearAllButton = createStyledButton("Clear All");
+        JButton datapathButton = createStyledButton("Datapath");
         JButton helpButton = createStyledButton("Help");
         buttonPanel.add(assembleButton);
         buttonPanel.add(runButton);
-        buttonPanel.add(stepBackButton);
-        buttonPanel.add(stepForwardButton);
+        //buttonPanel.add(stepBackButton);
+        //buttonPanel.add(stepForwardButton);
         buttonPanel.add(restartButton);
         buttonPanel.add(clearAllButton);
         buttonPanel.add(helpButton);
+        buttonPanel.add(datapathButton);
 
         // Thêm titlePanel và buttonPanel vào headerPanel
         headerPanel.add(titlePanel);
@@ -173,7 +179,7 @@ public class LEGv8GUI {
         JPanel instructionPanel = new JPanel(new BorderLayout());
         instructionPanel.setBackground(BACKGROUND_COLOR);
         instructionTable = new JTable(
-                new DefaultTableModel(new Object[] { "Line", "Address", "Instruction", "Source", "Meaning" }, 0));
+                new DefaultTableModel(new Object[] { "Line", "Address", "Source", "Meaning" }, 0));
         styleInstructionTable(instructionTable);
         populateInstructionTable();
         JScrollPane instructionScroll = new JScrollPane(instructionTable);
@@ -315,11 +321,75 @@ public class LEGv8GUI {
         // Xử lý sự kiện nút
         assembleButton.addActionListener(e -> assembleProgram());
         runButton.addActionListener(e -> runProgram());
-        stepBackButton.addActionListener(e -> stepBackProgram());
-        stepForwardButton.addActionListener(e -> stepForwardProgram());
+        //stepBackButton.addActionListener(e -> stepBackProgram());
+        //stepForwardButton.addActionListener(e -> stepForwardProgram());
         restartButton.addActionListener(e -> restartProgram());
         clearAllButton.addActionListener(e -> clearAll());
         helpButton.addActionListener(e -> showHelp());
+        
+        datapathButton.addActionListener(e -> {
+    datapathFrame = new JFrame("LEGv8 Datapath Visualization");
+    datapathFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    datapathFrame.setSize(1000, 700);
+
+    datapathPanel = new DatapathPanel();
+
+    // Create control panel with Step and Back buttons
+    JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+    JButton stepDatapathButton = new JButton("Step Datapath");
+    JButton backDatapathButton = new JButton("Back Datapath");
+    controlPanel.add(backDatapathButton);
+    controlPanel.add(stepDatapathButton);
+JLabel currentInstructionLabel = new JLabel("Executing: ");
+controlPanel.add(currentInstructionLabel);
+
+    stepDatapathButton.addActionListener(ev -> {
+        currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
+        simulator.step();
+        datapathPanel.setActiveComponentsAndBuses(
+            simulator.getActiveComponents(),
+            simulator.getActiveBuses(),
+            simulator.getBusDataValues()
+        );
+            updateStatus();
+            
+       // String currentInstr = simulator.getLastExecutedInstruction();
+      //  JOptionPane.showMessageDialog(datapathFrame, "Executing: " + currentInstr, "Current Instruction", JOptionPane.INFORMATION_MESSAGE);
+
+    });
+
+    backDatapathButton.addActionListener(ev -> {
+currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
+        if (simulator.getPc() > 0) {
+            simulator.setPc(simulator.getPc() - 2);
+            simulator.step();
+            datapathPanel.setActiveComponentsAndBuses(
+                simulator.getActiveComponents(),
+                simulator.getActiveBuses(),
+                simulator.getBusDataValues()
+            );
+        }
+    });
+
+    JPanel mainPanel = new JPanel(new BorderLayout());
+    mainPanel.add(controlPanel, BorderLayout.NORTH);
+    mainPanel.add(new JScrollPane(datapathPanel), BorderLayout.CENTER);
+
+    // If program is finished, show final state
+    if (simulator.isFinished()) {
+        datapathPanel.setActiveComponentsAndBuses(
+            simulator.getActiveComponents(),
+            simulator.getActiveBuses(),
+            simulator.getBusDataValues()
+        );
+    }
+
+    datapathFrame.add(mainPanel);
+    datapathFrame.setLocationRelativeTo(null);
+    datapathFrame.setVisible(true);
+    });
+        
+
 
         // Căn giữa màn hình
         frame.setLocationRelativeTo(null);
@@ -406,36 +476,35 @@ public class LEGv8GUI {
         }
     }
 
-    private void stepBackProgram() {
-        if (simulator.getProgram().size() > 0 && simulator.getPc() > 0) {
-            simulator.setPc(simulator.getPc() - 2);
-            simulator.step();
-            updateStatus();
-        }
-    }
+    // private void stepBackProgram() {
+    //     if (simulator.getProgram().size() > 0 && simulator.getPc() > 0) {
+    //         simulator.setPc(simulator.getPc() - 2);
+    //         simulator.step();
+    //         updateStatus();
+    //     }
+    // }
 
-    private void stepForwardProgram() {
-        try {
-            simulator.step();
-            updateStatus();
-        } catch (Exception e) {
-            outputArea.append("Error: " + e.getMessage() + "\n");
-        }
-    }
+    // private void stepForwardProgram() {
+    //     try {
+    //         simulator.step();
+    //         updateStatus();
+    //     } catch (Exception e) {
+    //         outputArea.append("Error: " + e.getMessage() + "\n");
+    //     }
+    // }
 
     private void restartProgram() {
-        simulator.reset();
-         populateInstructionTable();
+        populateInstructionTable();
+        updateStatus();
         if (outputArea != null) {
             outputArea.append("Program restarted.\n");
         }
         simulator.getProgram().clear();
-        updateStatus();
+        simulator.reset();
     }
 
     private void clearAll() {
         codeEditor.setText(""); 
-        simulator.reset();  
         populateInstructionTable();   
         updateStatus();
         simulator.getProgram().clear();
@@ -443,6 +512,7 @@ public class LEGv8GUI {
             outputArea.setText(""); 
             outputArea.append("All cleared.\n");
         }
+        simulator.reset();  
     }
 
     private void showHelp() {
