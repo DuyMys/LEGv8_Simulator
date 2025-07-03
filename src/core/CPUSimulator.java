@@ -38,6 +38,7 @@ public class CPUSimulator {
     private Map<String, String> busDataValues;
     private String lastExecutedInstruction = "None";
     private boolean isFinished = false;
+    private Runnable previousStepAction = null;
 
     public CPUSimulator(InstructionConfigLoader configLoader) {
         this.factory = new InstructionFactory(configLoader);
@@ -215,16 +216,66 @@ public class CPUSimulator {
                 ", OF=" + (overflowFlag ? 1 : 0) + ", CF=" + (carryFlag ? 1 : 0));
     }
 
-    /**
-     * Executes ONE micro-step.
-     */
+    // /**
+    //  * Executes ONE micro-step.
+    //  */
+    // public void step() {
+    //     if (isFinished) return;
+
+    //     // If the queue is empty, it means we are at the start of a new instruction.
+    //     // Generate the micro-steps for it.
+    //     if (microStepQueue.isEmpty()) {
+    //         if (pc >= program.size()) {
+    //             isFinished = true;
+    //             lastExecutedInstruction = "Execution Complete";
+    //             clearDatapathActivity();
+    //             return;
+    //         }
+    //         Instruction instruction = program.get(pc);
+    //         lastExecutedInstruction = instruction.disassemble();
+    //         generateMicroStepsFor(instruction);
+    //     }
+        
+    //     // Execute the next micro-step in the queue
+    //     if (currentMicroStepIndex < microStepQueue.size()) {
+    //         MicroStep step = microStepQueue.get(currentMicroStepIndex);
+            
+    //         // Set the datapath visualization for THIS step
+    //         this.activeComponents = step.getActiveComponents();
+    //         this.activeBuses = step.getActiveBuses();
+    //         this.busDataValues = step.getBusDataValues();
+            
+    //         // Execute the action associated with this step (e.g., the actual register write)
+    //         step.executeAction();
+
+    //         currentMicroStepIndex++;
+    //     }
+        
+    //     // If we just finished the last micro-step, advance the PC and clear the queue
+    //     if (currentMicroStepIndex >= microStepQueue.size()) {
+    //         // PC is advanced by the branch micro-step or by this default
+    //         if (!lastExecutedInstruction.startsWith("B ") && !lastExecutedInstruction.startsWith("CB")) {
+    //             pc++;
+    //         }
+    //         microStepQueue.clear();
+    //         currentMicroStepIndex = 0;
+            
+    //         if (pc >= program.size()) {
+    //             isFinished = true;
+    //         }
+    //     }
+    // }
     public void step() {
         if (isFinished) return;
-        
+
+        // --- Thực thi hành động của bước TRƯỚC ĐÓ ---
+        // Điều này đảm bảo hành động chỉ được thực hiện sau khi bước đó đã được hiển thị ít nhất một lần.
         if (previousStepAction != null) {
             previousStepAction.run();
             previousStepAction = null; // Chỉ chạy một lần
         }
+
+        // Nếu hàng đợi rỗng, đã đến lúc xử lý lệnh tiếp theo.
         if (microStepQueue.isEmpty()) {
             if (pc >= program.size()) {
                 isFinished = true;
@@ -249,17 +300,30 @@ public class CPUSimulator {
 
             currentMicroStepIndex++;
         }
-        else { 
+        
+        // Nếu chúng ta vừa hiển thị xong bước cuối cùng, chuẩn bị cho lệnh tiếp theo
+        else { // currentMicroStepIndex >= microStepQueue.size()
+            // Xóa hàng đợi để lần nhấn Step tiếp theo sẽ tạo các bước cho lệnh mới.
             microStepQueue.clear();
+
+            // PC được cập nhật bởi chính hành động của bước cuối cùng (ví dụ, lệnh B),
+            // hoặc bởi logic mặc định ở đây.
+            // Chú ý: Việc tăng PC bây giờ nên là một phần của "hành động".
+            // Chúng ta sẽ sửa lại logic này một chút.
+            
+            // Logic tăng PC mặc định.
+            // Hành động của lệnh B hoặc CB sẽ ghi đè PC, nên thứ tự không quá quan trọng.
             if (!isBranchInstruction(lastExecutedInstruction)) {
                 pc++;
             }
+            
             if (pc >= program.size()) {
                 isFinished = true;
             }
         }
     }
 
+    // Thêm một hàm helper nhỏ để kiểm tra lệnh rẽ nhánh
     private boolean isBranchInstruction(String mnemonic) {
         if (mnemonic == null) return false;
         String upperMnemonic = mnemonic.toUpperCase();
@@ -298,35 +362,23 @@ public class CPUSimulator {
     // --- GENERATOR FOR I-FORMAT ---
     // I-Format: Instructions like ADDI, SUBI (Immediate arithmetic)
     private void generateIFormatSteps(IFormatInstruction iInst) {
-        // --- Instruction Details ---
-        String op = iInst.getDefinition().getInstructionName(); // e.g., "ADDI", "SUBI"
+        InstructionDefinition definition = iInst.getDefinition();
+        ControlSignals signals = controlUnit.generateControlSignals(iInst);
+        String mnemonic = definition.getMnemonic();
+        int aluOperationCode = signals.getOperation();
+
         int rd = iInst.getRd_I();
         int rn = iInst.getRn_I();
-        long imm = iInst.getImmediate_I();
+        long immediate = iInst.getImmediate_I(); // Giá trị tức thời đã được mở rộng dấu
 
-        // --- Data Values (calculated for simulation) ---
         long rnValue = registerFile.readRegister(rn);
-        long result;
 
-        // Determine the result based on the operation
-        switch (op.toUpperCase()) {
-            case "SUBI":
-                result = rnValue - imm;
-                break;
-            case "ADDI":
-            default: // Default to ADDI for simplicity
-                result = rnValue + imm;
-                break;
-        }
-        
-        String rnName = "R" + rn;
-        String rdName = "R" + rd;
-        long pcPlus4 = (pc + 1) * 4;
+        final ArithmeticLogicUnit.ALUResult aluResult = alu.execute(rnValue, immediate, aluOperationCode, 0); // shamt = 0
+        final long result = aluResult.result;
 
         // --- Micro-Step Generation ---
 
         // Step 1: Instruction Fetch
-        // PC sends its address to Instruction Memory and the PC+4 adder.
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
             List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
@@ -335,7 +387,7 @@ public class CPUSimulator {
             ),
             Map.of(
                 BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
-                BusID.PC_TO_ADD_1.name(), String.format("0x%X", pc * 4),
+                BusID.PC_TO_ADD_1.name(), String.format("0x%X", pc ),
                 BusID.ADD_4_TO_ADD_1.name(), "4"
             ),
             null
@@ -347,7 +399,7 @@ public class CPUSimulator {
                 BusID.ADD_1_TO_MUX_PCSRC.name()
             ),
             Map.of(
-                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", pcPlus4)
+                BusID.ADD_1_TO_MUX_PCSRC.name(), String.format("0x%X", (pc + 1) * 4)
             ),
             null
         ));
@@ -359,6 +411,7 @@ public class CPUSimulator {
             "Decode & Read Register",
             List.of("CONTROL_UNIT", "REGISTERS", "MUX_ALUsrc"),
             List.of(
+                BusID.INSTRUCTION_MEMORY_.name(),
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
                 BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(),                 
                 BusID.REGISTERS_TO_ALU_READ1.name(), 
@@ -366,8 +419,8 @@ public class CPUSimulator {
             ),
             Map.of(
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), iInst.getInstructionHex(),
-                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("Imm: %d", imm),
-                BusID.REGISTERS_TO_ALU_READ1.name(), String.format("%s: %d", rnName, rnValue),
+                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("Imm: %d", immediate),
+                BusID.REGISTERS_TO_ALU_READ1.name(), String.format("%s: %d", rn, rnValue),
                 BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name(), "ALUSrc: 1"
             ),
             null
@@ -383,8 +436,7 @@ public class CPUSimulator {
                 BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name()
             ),
             Map.of(
-                // The sign-extended immediate is selected by the MUX and goes to the ALU
-                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm)
+                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(immediate)
             ),
             null
         ));
@@ -397,7 +449,7 @@ public class CPUSimulator {
             ),
             Map.of(
                 BusID.MUX_ALUsrc_TO_ALU.name() + " (Rn Value)", String.valueOf(rnValue),
-                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("Result: %d", result)
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("%d", result)
             ),
             null
         ));
@@ -405,33 +457,56 @@ public class CPUSimulator {
         // Step 4: Write-Back
         // The result from the ALU is written back to the destination register (Rd).
         // Control signals RegWrite=1 and MemToReg=0 are set.
-        microStepQueue.add(new MicroStep(
-            "Write-Back",
-            List.of("MUX_memtoreg", "REGISTERS"),
-            List.of(
-                BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
-                BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
-                BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(),
-                BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE.name()
-            ),
-            Map.of(
-                BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), "MemToReg: 0",
-                BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), "RegWrite: 1",
-                BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result),
-                BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE.name(), rdName
-            ),
-            () -> registerFile.writeRegister(rd, result, true)
-        ));
+        if (signals.isRegWrite()) {
+            microStepQueue.add(new MicroStep(
+                "4. Write-Back",
+                List.of("MUX_MEMTOREG", "REGISTERS"),
+                List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+                Map.of(
+                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.format("%d", result)
+                ),
+                () -> {
+                    registerFile.writeRegister(rd, result, true);
+                    if (signals.isFlagWrite()) {
+                        updateFlags(aluResult);
+                    }
+                    // Thêm hành động tăng PC vào đây!
+                    if (!isBranchInstruction(mnemonic)) {
+                        pc++;
+                    }
+                }
+            ));
+        } else {
+            microStepQueue.add(new MicroStep(
+                "4. Không ghi ngược",
+                List.of(), List.of(),
+                Map.of("INFO", String.format("%s.", mnemonic)),
+                () -> {
+                    if (signals.isFlagWrite()) {
+                        updateFlags(aluResult);
+                    }
+                }
+            ));
+        }
     }
 
     // R-Format: Instructions like ADD, SUB (Register-register arithmetic)
     private void generateRFormatSteps(RFormatInstruction rInst) {
+        InstructionDefinition definition = rInst.getDefinition();
+        ControlSignals signals = definition.getControlSignals();
+        int aluOperationCode = signals.getOperation();
+
         int rd = rInst.getRd_R();
         int rn = rInst.getRn_R();
         int rm = rInst.getRm_R();
+        int shamt = rInst.getShamt_R();
+
         long rnValue = registerFile.readRegister(rn);
         long rmValue = registerFile.readRegister(rm);
-        long result = rnValue + rmValue; // Example for ADD; adjust for other operations
+
+
+        final ArithmeticLogicUnit.ALUResult aluResult = alu.execute(rnValue, rmValue, aluOperationCode, shamt);
+        final long result = aluResult.result;
 
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
@@ -466,26 +541,43 @@ public class CPUSimulator {
             List.of("ALU"),
             List.of(BusID.REGISTERS_TO_ALU_READ1.name(), BusID.REGISTERS_TO_MUX_ALUsrc_READ2.name(), 
                     BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
-            Map.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result)),
+            Map.of(
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.valueOf(result)),
             null
         ));
 
         // Step 4: Write-Back
-        microStepQueue.add(new MicroStep(
-            "Write-Back",
-            List.of("MUX_memtoreg", "REGISTERS"),
-            List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
-                    BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
-                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
-            Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
-            () -> registerFile.writeRegister(rd, result, true)
-        ));
+        if (signals.isRegWrite()) {
+            microStepQueue.add(new MicroStep(
+                "Write-Back",
+                List.of("MUX_memtoreg", "REGISTERS"),
+                List.of(BusID.CONTROL_MEMTOREG_TO_MUX_memtoreg.name(), 
+                        BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
+                        BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+                Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
+                () -> {
+                    registerFile.writeRegister(rd, result, true);
+                    if (signals.isFlagWrite()) {
+                        updateFlags(aluResult);
+                    }
+                    // Thêm hành động tăng PC vào đây!
+                    if (!isBranchInstruction(mnemonic)) {
+                        pc++;
+                    }
+                }
+            ));
+        } else {
+            // If RegWrite is false, we still need to update the flags if FlagW is set
+            if (signals.isFlagWrite()) {
+                updateFlags(aluResult);
+            }
+        }
     }
 
     // B-Format: Instructions like B (Unconditional branch)
     private void generateBFormatSteps(BFormatInstruction bInst) {
-        long imm = bInst.getBranchAddress(pc);
-        long branchTarget = pc * 4 + imm; // Branch target address
+        long offset = bInst.getAddress_B();
+        final int targetPc = this.pc + (int) offset;
 
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
@@ -510,8 +602,8 @@ public class CPUSimulator {
                     BusID.SHIFT_LEFT_2_TO_ADD.name(),
                     BusID.ADD_2_TO_MUX_PCSRC.name()),
             Map.of(
-                BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), String.valueOf(imm),
-                BusID.ADD_2_TO_MUX_PCSRC.name(), String.format("0x%X", branchTarget)
+                BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), String.valueOf(offset),
+                BusID.ADD_2_TO_MUX_PCSRC.name(), String.format("0x%X", targetPc)
             ),
             null
         ));
@@ -523,8 +615,8 @@ public class CPUSimulator {
             List.of(BusID.CONTROL_UNCOND_TO_OR_GATE.name(), BusID.ADD_2_TO_MUX_PCSRC.name(),
                     BusID. OR_GATE_TO_MUX_PCSRC.name(),
                     BusID.MUX_PCSRC_TO_PC.name()),
-            Map.of(BusID.MUX_PCSRC_TO_PC.name(), String.format("0x%X", branchTarget)),
-            () -> pc = (int)branchTarget / 4
+            Map.of(BusID.MUX_PCSRC_TO_PC.name(), String.format("0x%X", targetPc * 4)),
+            () -> this.pc = targetPc
         ));
     }
     
@@ -611,8 +703,10 @@ public class CPUSimulator {
     // IM-Format: Instructions like MOVZ, MOVK (Move immediate)
     private void generateIMFormatSteps(IMFormatInstruction imInst) {
         int rd = imInst.getRd_IM();
-        long imm = imInst.getImmediate_IM();
-        long result = imm; // For MOVZ; MOVK requires masking existing register value
+        int hw = imInst.getShift_IM();
+        long imm16 = imInst.getImmediate_IM();
+        int shiftAmount = hw * 16;
+        final long result = imm16 << shiftAmount;
 
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
@@ -633,19 +727,25 @@ public class CPUSimulator {
             List.of("CONTROL_UNIT", "SIGN_EXTEND"),
             List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
                     BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name()),
-            Map.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm)),
+            Map.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm16)),
             null
         ));
 
         // Step 3: Write-Back
         microStepQueue.add(new MicroStep(
+            "Execute",
+            List.of("ALU", "MUX_memtoreg"), // Component tham gia có thể là Shifter hoặc ALU
+            List.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name()),
+            Map.of(
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("Kết quả 64-bit: %d (0x%X)", result, result)
+            ),
+            null
+        ));
+        // Step 4
+        microStepQueue.add(new MicroStep(
             "Write-Back",
             List.of("MUX_memtoreg", "REGISTERS"),
-            List.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), 
-                    BusID.MUX_ALUsrc_TO_ALU.name(), 
-                    BusID.ALU_TO_MUX_memtoreg_RESULT.name(),
-                    BusID.CONTROL_REGWRITE_TO_REGISTERS.name(), 
-                    BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
+            List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name()),
             Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result)),
             () -> registerFile.writeRegister(rd, result, true)
         ));
