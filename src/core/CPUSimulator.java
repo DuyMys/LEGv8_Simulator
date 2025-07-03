@@ -262,7 +262,9 @@ public class CPUSimulator {
             if (!isBranchInstruction(lastExecutedInstruction)) {
                 pc++;
             }
-            
+            // Instruction instruction = program.get(pc);
+            // executeInstruction(instruction);
+            printState();
             if (pc >= program.size()) {
                 isFinished = true;
             }
@@ -327,15 +329,16 @@ public class CPUSimulator {
         // Step 1: Instruction Fetch
         microStepQueue.add(new MicroStep(
             "Instruction Fetch",
-            List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1"),
-            List.of(
-                BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), BusID.ADD_4_TO_ADD_1.name()
-            ),
-            Map.of(
-                BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
-                BusID.PC_TO_ADD_1.name(), String.format("0x%X", pc ),
-                BusID.ADD_4_TO_ADD_1.name(), "4"
-            ),
+            new ArrayList<>(List.of("PC", "INSTRUCTION_MEMORY", "ADD_4", "ADD_1")), 
+            new ArrayList<>(List.of(
+            BusID.PC_TO_INSTRUCTION_MEMORY.name(), BusID.PC_TO_ADD_1.name(), 
+            BusID.ADD_4_TO_ADD_1.name()
+            )), 
+            new HashMap<>(Map.of(
+            BusID.PC_TO_INSTRUCTION_MEMORY.name(), String.format("0x%X", pc * 4),
+            BusID.PC_TO_ADD_1.name(), String.format("0x%X", pc ),
+            BusID.ADD_4_TO_ADD_1.name(), "4"
+            )), 
             null
         ));
         microStepQueue.add(new MicroStep(
@@ -700,6 +703,10 @@ public class CPUSimulator {
         currentMicroStepIndex = 0;
         clearDatapathActivity();
         lastExecutedInstruction = "None";
+        zeroFlag = false; // Đặt lại cờ trạng thái
+        negativeFlag = false;
+        overflowFlag = false;
+        carryFlag = false;
     }
 
     private void clearDatapathActivity() {
