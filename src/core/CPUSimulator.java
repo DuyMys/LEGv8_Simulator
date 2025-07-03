@@ -219,52 +219,7 @@ public class CPUSimulator {
     // /**
     //  * Executes ONE micro-step.
     //  */
-    // public void step() {
-    //     if (isFinished) return;
 
-    //     // If the queue is empty, it means we are at the start of a new instruction.
-    //     // Generate the micro-steps for it.
-    //     if (microStepQueue.isEmpty()) {
-    //         if (pc >= program.size()) {
-    //             isFinished = true;
-    //             lastExecutedInstruction = "Execution Complete";
-    //             clearDatapathActivity();
-    //             return;
-    //         }
-    //         Instruction instruction = program.get(pc);
-    //         lastExecutedInstruction = instruction.disassemble();
-    //         generateMicroStepsFor(instruction);
-    //     }
-        
-    //     // Execute the next micro-step in the queue
-    //     if (currentMicroStepIndex < microStepQueue.size()) {
-    //         MicroStep step = microStepQueue.get(currentMicroStepIndex);
-            
-    //         // Set the datapath visualization for THIS step
-    //         this.activeComponents = step.getActiveComponents();
-    //         this.activeBuses = step.getActiveBuses();
-    //         this.busDataValues = step.getBusDataValues();
-            
-    //         // Execute the action associated with this step (e.g., the actual register write)
-    //         step.executeAction();
-
-    //         currentMicroStepIndex++;
-    //     }
-        
-    //     // If we just finished the last micro-step, advance the PC and clear the queue
-    //     if (currentMicroStepIndex >= microStepQueue.size()) {
-    //         // PC is advanced by the branch micro-step or by this default
-    //         if (!lastExecutedInstruction.startsWith("B ") && !lastExecutedInstruction.startsWith("CB")) {
-    //             pc++;
-    //         }
-    //         microStepQueue.clear();
-    //         currentMicroStepIndex = 0;
-            
-    //         if (pc >= program.size()) {
-    //             isFinished = true;
-    //         }
-    //     }
-    // }
     public void step() {
         if (isFinished) return;
 
