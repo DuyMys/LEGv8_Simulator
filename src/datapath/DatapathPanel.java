@@ -298,6 +298,7 @@ public class DatapathPanel extends JPanel {
                 new Point(compBounds.get("DATA_MEMORY").x, compBounds.get("ALU").y + 90)
             ));
         pathPoints.put(BusID.ALU_TO_MUX_memtoreg_RESULT, Arrays.asList(
+            new Point(compBounds.get("ALU").x + compBounds.get("ALU").width, compBounds.get("ALU").y + 90),
             new Point(compBounds.get("ALU").x + compBounds.get("ALU").width + 10, compBounds.get("ALU").y + 90),
             new Point(compBounds.get("ALU").x + compBounds.get("ALU").width + 10, compBounds.get("ALU").y + 90 + 200),
             new Point(compBounds.get("MUX_memtoreg").x - 20, compBounds.get("ALU").y + 90 + 200),
