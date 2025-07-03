@@ -750,8 +750,6 @@ public class DatapathPanel extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
-        // g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        // g2d.setFont(new Font("Arial", Font.PLAIN, 12));
 
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -760,16 +758,42 @@ public class DatapathPanel extends JPanel {
         g2d.setFont(new Font("Segoe UI", Font.PLAIN, 12));
 
         // Draw components
-        // for (ComponentInfo comp : components) {
-        //     drawComponent(g2d, comp);
-        // }
         for (ComponentInfo comp : components) {
             drawComponentWithShadow(g2d, comp);
         }
 
-        // Draw buses (paths)
+        // Draw non-highlighted buses first
         for (BusInfo bus : buses) {
-            drawBus(g2d, bus);
+            BusID id = null;
+            boolean isBusHighlighted = false;
+            try {
+                id = BusID.valueOf(bus.id);
+                isBusHighlighted = activeBuses.contains(id.name());
+            } catch (IllegalArgumentException e) {
+                // Bus ID mismatch, treat as non-highlighted
+                isBusHighlighted = false;
+            }
+            
+            if (!isBusHighlighted) {
+                drawBus(g2d, bus);
+            }
+        }
+
+        // Draw highlighted buses last (on top layer)
+        for (BusInfo bus : buses) {
+            BusID id = null;
+            boolean isBusHighlighted = false;
+            try {
+                id = BusID.valueOf(bus.id);
+                isBusHighlighted = activeBuses.contains(id.name());
+            } catch (IllegalArgumentException e) {
+                // Bus ID mismatch, treat as non-highlighted
+                isBusHighlighted = false;
+            }
+            
+            if (isBusHighlighted) {
+                drawBus(g2d, bus);
+            }
         }
     }
 
