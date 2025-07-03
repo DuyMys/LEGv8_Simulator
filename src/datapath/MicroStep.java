@@ -28,4 +28,7 @@ public class MicroStep {
             action.run();
         }
     }
+    public Runnable getAction() {
+        return action;
+    }
 }
