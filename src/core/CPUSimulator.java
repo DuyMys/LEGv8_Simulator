@@ -220,9 +220,11 @@ public class CPUSimulator {
      */
     public void step() {
         if (isFinished) return;
-
-        // If the queue is empty, it means we are at the start of a new instruction.
-        // Generate the micro-steps for it.
+        
+        if (previousStepAction != null) {
+            previousStepAction.run();
+            previousStepAction = null; // Chỉ chạy một lần
+        }
         if (microStepQueue.isEmpty()) {
             if (pc >= program.size()) {
                 isFinished = true;
@@ -233,36 +235,35 @@ public class CPUSimulator {
             Instruction instruction = program.get(pc);
             lastExecutedInstruction = instruction.disassemble();
             generateMicroStepsFor(instruction);
+            currentMicroStepIndex = 0; 
         }
         
-        // Execute the next micro-step in the queue
         if (currentMicroStepIndex < microStepQueue.size()) {
-            MicroStep step = microStepQueue.get(currentMicroStepIndex);
+            MicroStep currentStep = microStepQueue.get(currentMicroStepIndex);
             
-            // Set the datapath visualization for THIS step
-            this.activeComponents = step.getActiveComponents();
-            this.activeBuses = step.getActiveBuses();
-            this.busDataValues = step.getBusDataValues();
+            this.activeComponents = currentStep.getActiveComponents();
+            this.activeBuses = currentStep.getActiveBuses();
+            this.busDataValues = currentStep.getBusDataValues();
             
-            // Execute the action associated with this step (e.g., the actual register write)
-            step.executeAction();
+            this.previousStepAction = currentStep.getAction();
 
             currentMicroStepIndex++;
         }
-        
-        // If we just finished the last micro-step, advance the PC and clear the queue
-        if (currentMicroStepIndex >= microStepQueue.size()) {
-            // PC is advanced by the branch micro-step or by this default
-            if (!lastExecutedInstruction.startsWith("B ") && !lastExecutedInstruction.startsWith("CB")) {
+        else { 
+            microStepQueue.clear();
+            if (!isBranchInstruction(lastExecutedInstruction)) {
                 pc++;
             }
-            microStepQueue.clear();
-            currentMicroStepIndex = 0;
-            
             if (pc >= program.size()) {
                 isFinished = true;
             }
         }
+    }
+
+    private boolean isBranchInstruction(String mnemonic) {
+        if (mnemonic == null) return false;
+        String upperMnemonic = mnemonic.toUpperCase();
+        return upperMnemonic.startsWith("B ") || upperMnemonic.startsWith("B.") || upperMnemonic.startsWith("CB");
     }
     /**
      * Generates a sequence of micro-steps for a given instruction.
