@@ -1,115 +1,107 @@
 package core;
 
+import java.util.EnumSet;
+
 /**
  * Simulates the LEGv8 Arithmetic Logic Unit (ALU).
  */
 public class ArithmeticLogicUnit {
+
+    // Enum để định nghĩa các phép toán của ALU một cách rõ ràng
+    public enum ALUOperation {
+        ADD, SUB, AND, ORR, EOR,
+        MUL, SMULH, UMULH,
+        SDIV, UDIV,
+        LSL, LSR, ASR,
+        PASS_B // Dùng cho các lệnh như MOVZ, ADDI, nơi chỉ cần chuyển giá trị thứ hai
+    }
+
     public static class ALUResult {
         public final long result;
-        public final boolean zero;
-        public final boolean negative;
-        public final boolean carry;
-        public final boolean overflow;
+        public final boolean n; // Negative flag
+        public final boolean z; // Zero flag
+        public final boolean c; // Carry flag
+        public final boolean v; // Overflow flag
 
-        public ALUResult(long result, boolean zero, boolean negative, boolean carry, boolean overflow) {
+        public ALUResult(long result, boolean n, boolean z, boolean c, boolean v) {
             this.result = result;
-            this.zero = zero;
-            this.negative = negative;
-            this.carry = carry;
-            this.overflow = overflow;
+            this.n = n;
+            this.z = z;
+            this.c = c;
+            this.v = v;
         }
     }
 
-    public ALUResult execute(long a, long b, int aluOp, int operation) {
+    // Các phép toán cần tính cờ Carry và Overflow
+    private static final EnumSet<ALUOperation> FLAG_AFFECTING_ARITHMETIC = EnumSet.of(ALUOperation.ADD, ALUOperation.SUB);
+
+    public ALUResult execute(long a, long b, ALUOperation op) {
         long result = 0;
-        boolean zero = false, negative = false, carry = false, overflow = false;
 
-        // ALUOp=0: Immediate operations (MOVZ, LDUR, STUR, ADDI, SUBI)
-        if (aluOp == 0) {
-            switch (operation) {
-                case 0: // MOVZ, LDUR, STUR, ADDI
-                    if (b == 0) { // MOVZ
-                        result = b;
-                    } else { // LDUR, STUR, ADDI
-                        result = a + b;
-                        overflow = ((a > 0 && b > 0 && result < 0) || (a < 0 && b < 0 && result > 0));
-                    }
-                    break;
-                case 1: // SUBI
-                    result = a - b;
-                    overflow = ((a > 0 && b < 0 && result < 0) || (a < 0 && b > 0 && result > 0));
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported ALU operation: ALUOp=" + aluOp + ", Operation=" + operation);
+        switch (op) {
+            case ADD:
+                result = a + b;
+                break;
+            case SUB:
+                result = a - b;
+                break;
+            case AND:
+                result = a & b;
+                break;
+            case ORR:
+                result = a | b;
+                break;
+            case EOR:
+                result = a ^ b;
+                break;
+            case MUL:
+                result = a * b;
+                break;
+            case SDIV:
+                if (b == 0) throw new ArithmeticException("Division by zero");
+                result = a / b;
+                break;
+            case UDIV: // SỬA LỖI: Sử dụng phép chia 64-bit không dấu
+                if (b == 0) throw new ArithmeticException("Division by zero");
+                result = Long.divideUnsigned(a, b);
+                break;
+            case LSL:
+                result = a << b;
+                break;
+            case LSR:
+                result = a >>> b;
+                break;
+            case ASR:
+                result = a >> b;
+                break;
+            case PASS_B: // Dùng cho MOVZ, ADDI (trong trường hợp rn=XZR)
+                result = b;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported ALU operation: " + op);
+        }
+
+        // --- Cập nhật cờ trạng thái (Flags) ---
+        boolean n_flag = (result < 0);
+        boolean z_flag = (result == 0);
+        boolean c_flag = false;
+        boolean v_flag = false;
+
+        // C và V chỉ được tính cho các phép toán số học nhất định
+        if (FLAG_AFFECTING_ARITHMETIC.contains(op)) {
+            if (op == ALUOperation.ADD) {
+                // Carry: xảy ra khi tổng không dấu nhỏ hơn toán hạng ban đầu
+                c_flag = Long.compareUnsigned(result, a) < 0;
+                // Overflow: xảy ra khi dấu của 2 toán hạng giống nhau và khác dấu kết quả
+                v_flag = ((a ^ result) & (b ^ result)) < 0;
+            } else if (op == ALUOperation.SUB) {
+                // Carry (not-borrow): xảy ra khi a >= b (không dấu)
+                c_flag = Long.compareUnsigned(a, b) >= 0;
+                // Overflow: xảy ra khi dấu của a và b khác nhau, và dấu kết quả giống b
+                v_flag = ((a ^ b) & (a ^ result)) < 0;
             }
         }
-        // ALUOp=2: Register operations (ADD, SUB, AND, ORR, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, CMP)
-        else if (aluOp == 2) {
-            switch (operation) {
-                case 0: // AND
-                    result = a & b;
-                    break;
-                case 1: // ORR
-                    result = a | b;
-                    break;
-                case 2: // ADD
-                    result = a + b;
-                    overflow = ((a > 0 && b > 0 && result < 0) || (a < 0 && b < 0 && result > 0));
-                    carry = ((a > 0 && b > 0) && (result < a || result < b));
-                    break;
-                case 3: // SUB
-                    result = a - b;
-                    overflow = ((a > 0 && b < 0 && result < 0) || (a < 0 && b > 0 && result > 0));
-                    carry = (a >= b); // Carry khi a >= b trong trừ unsigned
-                    break;
-                case 4: // EOR
-                    result = a ^ b;
-                    break;
-                case 5: // MUL
-                    result = a * b;
-                    overflow = Math.abs(result) > Long.MAX_VALUE / Math.abs(b); // Kiểm tra tràn số
-                    break;
-                case 6: // CMP (SUB nhưng không ghi kết quả)
-                    result = a - b;
-                    overflow = ((a > 0 && b < 0 && result < 0) || (a < 0 && b > 0 && result > 0));
-                    carry = (a >= b);
-                    break;
-                case 7: // SDIV
-                    if (b == 0) throw new ArithmeticException("Division by zero");
-                    result = a / b; // Chia có dấu
-                    break;
-                case 8: // UDIV
-                    if (b == 0) throw new ArithmeticException("Division by zero");
-                    long unsignedA = a & 0xFFFFFFFFL;
-                    long unsignedB = b & 0xFFFFFFFFL;
-                    result = unsignedA / unsignedB; // Chia không dấu
-                    break;
-                case 9: // LSL
-                    result = a << (int) b; // Dịch trái logic
-                    break;
-                case 10: // LSR
-                    result = a >>> (int) b; // Dịch phải logic
-                    break;
-                case 11: // ASR
-                    result = a >> (int) b; // Dịch phải giữ dấu
-                    break;
-                
-                default:
-                    throw new IllegalArgumentException("Unsupported ALU operation: ALUOp=" + aluOp + ", Operation=" + operation);
-            }
-        } else {
-            throw new IllegalArgumentException("Unsupported ALUOp: " + aluOp);
-        }
 
-        // Cập nhật cờ
-        zero = (result == 0);
-        negative = (result < 0);
-        // Carry: Chỉ tính cho ADD, SUB, CMP (giả sử unsigned)
-        if ((aluOp == 2 && (operation == 2 || operation == 3)) || (aluOp == 0 && operation == 1)) {
-            carry = (a >>> 63) != (b >>> 63) && (result >>> 63) == (b >>> 63);
-        }
-        // Overflow: Đã tính trong từng phép toán
-
-        return new ALUResult(result, zero, negative, carry, overflow);
+        return new ALUResult(result, n_flag, z_flag, c_flag, v_flag);
     }
 }
