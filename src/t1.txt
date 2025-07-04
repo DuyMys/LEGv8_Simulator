@@ -1,0 +1,82 @@
+LEGv8Simulator/
+├── src/
+│   └── legv8/
+│       ├── Main.java                   # Entry point: xử lý args, khởi tạo Simulator
+│       ├── Simulator.java              # Vòng lặp mô phỏng chính: Fetch → Decode → Execute
+
+│       ├── core/                       # Thành phần cốt lõi mô phỏng phần cứng
+│       │   ├── CPU.java
+│       │   ├── Registers.java
+│       │   ├── ProgramCounter.java
+│       │   ├── Flags.java
+│       │   ├── ALU.java
+
+│       ├── datapath/                   # Mô phỏng đường dữ liệu CPU (Datapath)
+│       │   ├── Datapath.java           # Mô hình tổng quát Datapath
+│       │   ├── ControlUnit.java        # Bộ điều khiển
+│       │   ├── Signal.java             # Enum hoặc class mô tả tín hiệu điều khiển
+
+│       ├── memory/                     # Mô phỏng bộ nhớ
+│       │   └── Memory.java
+
+│       ├── instruction/                # Mọi thứ liên quan đến lệnh
+│       │   ├── Instruction.java        # Abstract class
+│       │   ├── InstructionDefinition.java
+│       │   ├── InstructionFormat.java  # Enum: R, I, D, B, CB,...
+│       │   ├── InstructionFactory.java
+│       │   ├── types/                  # Các lớp con cho từng loại lệnh
+│       │   │   ├── RFormatInstruction.java
+│       │   │   ├── IFormatInstruction.java
+│       │   │   ├── DFormatInstruction.java
+│       │   │   ├── BFormatInstruction.java
+│       │   │   └── CBFormatInstruction.java
+│       │   └── definitions/            # (Tùy chọn) Tập hợp định nghĩa lệnh dạng cấu hình
+
+│       ├── execution/                  # Thực thi lệnh
+│       │   ├── InstructionExecutor.java
+│       │   ├── RFormatExecutor.java
+│       │   ├── IFormatExecutor.java
+│       │   ├── DFormatExecutor.java
+│       │   ├── BFormatExecutor.java
+│       │   └── CBFormatExecutor.java
+
+│       ├── assembler/                  # (Tùy chọn) Trình hợp dịch
+│       │   ├── Assembler.java
+│       │   ├── Lexer.java
+│       │   └── Parser.java
+
+│       ├── disassembler/              # (Tùy chọn) Trình dịch ngược (disassembler)
+│       │   └── Disassembler.java
+
+│       ├── io/                         # Xử lý nhập/xuất file và console
+│       │   ├── InputReader.java
+│       │   ├── OutputFormatter.java
+
+│       ├── gui/                        # (Tùy chọn) Giao diện đồ họa (JavaFX, Swing)
+│       │   └── SimulatorGUI.java
+
+│       ├── util/                       # Các hàm tiện ích chung
+│       │   ├── BitUtils.java
+│       │   ├── ColoredLog.java
+│       │   └── Constants.java
+
+│       ├── exceptions/                 # Xử lý lỗi tùy chỉnh
+│       │   ├── InvalidInstructionException.java
+│       │   ├── MemoryAccessException.java
+│       │   └── RegisterAccessException.java
+
+├── resources/
+│   ├── examples/                       # Mã máy và mã hợp ngữ mẫu
+│   │   ├── example1.legv8asm
+│   │   └── example2.bin
+│   └── config/                         # Định nghĩa tập lệnh dạng JSON/XML (nếu dùng)
+
+├── tests/                              # Unit test với JUnit
+│   ├── CPUUnitTest.java
+│   ├── MemoryTest.java
+│   ├── InstructionTest.java
+│   ├── ALUTest.java
+│   └── ExecutorTest.java
+
+├── build.gradle or pom.xml             # Quản lý build nếu dùng Gradle/Maven
+└── README.md                           # Hướng dẫn sử dụng
