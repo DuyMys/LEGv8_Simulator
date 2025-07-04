@@ -1,5 +1,4 @@
 package datapath;
-
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.geom.RoundRectangle2D;
@@ -10,16 +9,30 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import javax.swing.Timer;
+import datapath.*;
+import core.ExecutionState;
+import core.ExecutionHistory;
+import core.ExecutionHistoryListener;
+import core.ExecutionState;
+import core.ExecutionHistory;
 
 
 /**
  * A JPanel that visually represents the LEGv8 datapath, drawing components with PNG images and paths with destination labels.
+ * Enhanced with execution history for step-back functionality.
  */
-public class DatapathPanel extends JPanel {
+public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
     private final Datapath datapath;
     private List<String> activeComponents;
     private List<String> activeBuses;
     private Map<String, String> busDataValues; 
+    
+    // --- Execution History System ---
+    private final ExecutionHistory executionHistory;
+    private Map<Integer, Long> currentRegisterState;
+    private Map<Long, Long> modifiedMemoryState;
+    private boolean isRestoringFromHistory;
+    private String currentStepDescription;
     
     private final List<ComponentInfo> components;
     private final List<BusInfo> buses;
@@ -73,6 +86,21 @@ public class DatapathPanel extends JPanel {
         this.busDrawArrow = new HashMap<>();
         this.busAnimationProgress = new HashMap<>();
         this.animationTimer = new Timer(ANIMATION_STEP_MS, e -> updateAnimation());
+        
+        // --- Execution History System Initialization ---
+        this.executionHistory = new ExecutionHistory();
+        this.currentRegisterState = new HashMap<>();
+        this.modifiedMemoryState = new HashMap<>();
+        this.isRestoringFromHistory = false;
+        this.currentStepDescription = "Initial State";
+        
+        // Register as history listener
+        this.executionHistory.addListener(this);
+        
+        // Initialize register state (all registers start at 0)
+        for (int i = 0; i < 32; i++) {
+            currentRegisterState.put(i, 0L);
+        }
         
         loadImages();
         this.components = initializeComponents();
@@ -1074,21 +1102,29 @@ public class DatapathPanel extends JPanel {
     }
     public void setActiveComponentsAndBuses(List<String> activeComponents, List<String> activeBuses,
                                             Map<String, String> busDataValues) {
-        this.activeComponents = new ArrayList<>(activeComponents);
-        this.activeBuses = new ArrayList<>(activeBuses);
-        this.busDataValues = new HashMap<>(busDataValues);
+        // Only record to history if not restoring from history
+        if (!isRestoringFromHistory) {
+            this.activeComponents = new ArrayList<>(activeComponents);
+            this.activeBuses = new ArrayList<>(activeBuses);
+            this.busDataValues = new HashMap<>(busDataValues);
 
-        // Reset animation progress for new active buses
-        this.busAnimationProgress.clear();
-        for (String busId : activeBuses) {
-            busAnimationProgress.put(busId, 0.0f);
-        }
+            // Reset animation progress for new active buses
+            this.busAnimationProgress.clear();
+            for (String busId : activeBuses) {
+                busAnimationProgress.put(busId, 0.0f);
+            }
 
-        // Start animation timer if there are active buses
-        if (!activeBuses.isEmpty() && !animationTimer.isRunning()) {
-            animationTimer.start();
-        } else if (activeBuses.isEmpty() && animationTimer.isRunning()) {
-            animationTimer.stop();
+            // Start animation timer if there are active buses
+            if (!activeBuses.isEmpty() && !animationTimer.isRunning()) {
+                animationTimer.start();
+            } else if (activeBuses.isEmpty() && animationTimer.isRunning()) {
+                animationTimer.stop();
+            }
+        } else {
+            // When restoring from history, just update the visual state
+            this.activeComponents = new ArrayList<>(activeComponents);
+            this.activeBuses = new ArrayList<>(activeBuses);
+            this.busDataValues = new HashMap<>(busDataValues);
         }
 
         repaint();
@@ -1148,5 +1184,216 @@ public class DatapathPanel extends JPanel {
 
         // If progress is 1.0, return the last point
         return path.get(path.size() - 1);
+    }
+
+    // --- Execution History System Methods ---
+    
+    /**
+     * Records the current execution state to history.
+     * @param stepDescription Description of the current execution step
+     * @param pc Current program counter
+     * @param flags Current CPU flags
+     * @param lastInstruction Last executed instruction
+     * @param isFinished Whether execution is finished
+     * @param microStepIndex Current micro-step index
+     */
+    public void recordExecutionState(String stepDescription, int pc, boolean[] flags, 
+                                   String lastInstruction, boolean isFinished, int microStepIndex) {
+        if (isRestoringFromHistory) return; // Prevent recursive recording during restoration
+        
+        ExecutionState state = new ExecutionState(
+            pc, 
+            flags[0], // zero flag
+            flags[1], // negative flag
+            flags[2], // overflow flag  
+            flags[3], // carry flag
+            lastInstruction,
+            isFinished,
+            microStepIndex,
+            new HashMap<>(currentRegisterState),
+            new HashMap<>(modifiedMemoryState),
+            new ArrayList<>(activeComponents),
+            new ArrayList<>(activeBuses),
+            new HashMap<>(busDataValues),
+            stepDescription
+        );
+        
+        executionHistory.addState(state);
+        this.currentStepDescription = stepDescription;
+    }
+    
+    /**
+     * Steps back to the previous execution state.
+     * @return true if step back was successful, false if already at beginning
+     */
+    public boolean stepBack() {
+        ExecutionState previousState = executionHistory.stepBack();
+        if (previousState == null) {
+            return false;
+        }
+        
+        restoreFromState(previousState);
+        return true;
+    }
+    
+    /**
+     * Steps forward to the next execution state (after stepping back).
+     * @return true if step forward was successful, false if already at end
+     */
+    public boolean stepForward() {
+        ExecutionState nextState = executionHistory.stepForward();
+        if (nextState == null) {
+            return false;
+        }
+        
+        restoreFromState(nextState);
+        return true;
+    }
+    
+    /**
+     * Restores the datapath panel state from an ExecutionState.
+     */
+    private void restoreFromState(ExecutionState state) {
+        isRestoringFromHistory = true;
+        
+        try {
+            // Restore visualization state
+            this.activeComponents = new ArrayList<>(state.getActiveComponents());
+            this.activeBuses = new ArrayList<>(state.getActiveBuses());
+            this.busDataValues = new HashMap<>(state.getBusDataValues());
+            this.currentRegisterState = new HashMap<>(state.getRegisterValues());
+            this.modifiedMemoryState = new HashMap<>(state.getModifiedMemoryValues());
+            this.currentStepDescription = state.getStepDescription();
+            
+            // Reset animation state for restored buses
+            this.busAnimationProgress.clear();
+            for (String busId : activeBuses) {
+                busAnimationProgress.put(busId, 0.0f);
+            }
+            
+            // Start animation if needed
+            if (!activeBuses.isEmpty() && !animationTimer.isRunning()) {
+                animationTimer.start();
+            } else if (activeBuses.isEmpty() && animationTimer.isRunning()) {
+                animationTimer.stop();
+            }
+            
+            repaint();
+        } finally {
+            isRestoringFromHistory = false;
+        }
+    }
+    
+    /**
+     * Updates a register value in the current state.
+     */
+    public void updateRegisterValue(int registerIndex, long value) {
+        if (!isRestoringFromHistory) {
+            currentRegisterState.put(registerIndex, value);
+        }
+    }
+    
+    /**
+     * Updates a memory value in the current state.
+     */
+    public void updateMemoryValue(long address, long value) {
+        if (!isRestoringFromHistory) {
+            modifiedMemoryState.put(address, value);
+        }
+    }
+    
+    /**
+     * Gets the current register state.
+     */
+    public Map<Integer, Long> getCurrentRegisterState() {
+        return new HashMap<>(currentRegisterState);
+    }
+    
+    /**
+     * Gets the current memory state.
+     */
+    public Map<Long, Long> getCurrentMemoryState() {
+        return new HashMap<>(modifiedMemoryState);
+    }
+    
+    /**
+     * Gets the execution history manager.
+     */
+    public ExecutionHistory getExecutionHistory() {
+        return executionHistory;
+    }
+    
+    /**
+     * Checks if we can step back in execution history.
+     */
+    public boolean canStepBack() {
+        return executionHistory.canStepBack();
+    }
+    
+    /**
+     * Checks if we can step forward in execution history.
+     */
+    public boolean canStepForward() {
+        return executionHistory.canStepForward();
+    }
+    
+    /**
+     * Gets the current step description.
+     */
+    public String getCurrentStepDescription() {
+        return currentStepDescription;
+    }
+    
+    /**
+     * Clears the execution history.
+     */
+    public void clearHistory() {
+        executionHistory.clear();
+        currentRegisterState.clear();
+        modifiedMemoryState.clear();
+        
+        // Reset register state
+        for (int i = 0; i < 32; i++) {
+            currentRegisterState.put(i, 0L);
+        }
+        
+        currentStepDescription = "Initial State";
+    }
+    
+    /**
+     * Gets execution statistics for debugging.
+     */
+    public String getExecutionStatistics() {
+        return executionHistory.getStatistics();
+    }
+    
+    // --- ExecutionHistoryListener Implementation ---
+    
+    @Override
+    public void onHistoryStateChanged(boolean canStepBack, boolean canStepForward, 
+                                    int currentStep, int totalSteps) {
+        // This can be used by the GUI to enable/disable step back/forward buttons
+        // For now, we'll just store this information - GUI components can access it
+        System.out.println(String.format("History state changed: Step %d/%d, Back: %b, Forward: %b",
+                                        currentStep + 1, totalSteps, canStepBack, canStepForward));
+    }
+    
+    @Override
+    public void onStateRestored(ExecutionState state) {
+        // Update the current step description when state is restored
+        this.currentStepDescription = state.getStepDescription();
+        System.out.println("State restored: " + state.getStepDescription());
+    }
+    
+    @Override
+    public void onStateRecorded(ExecutionState state) {
+        // Could be used for logging or updating GUI status
+        System.out.println("State recorded: " + state.getStepDescription());
+    }
+    
+    @Override
+    public void onHistoryCleared() {
+        this.currentStepDescription = "Initial State";
+        System.out.println("Execution history cleared");
     }
 }

@@ -2,7 +2,11 @@ package instruction;
 
 import util.*;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -95,14 +99,26 @@ public class InstructionFactory {
 
         switch (definition.getFormat()) {
             case 'R':
-                // ADD, SUB, AND, ORR: "Xd, Xn, Xm"
-                String[] rParts = operands.split(",");
-                if (rParts.length != 3) {
-                    System.err.printf("%sInvalid R-format instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
-                    return null;
-                }
-                for (int i = 0; i < 3; i++) {
-                    parts[i + 1] = rParts[i].trim();
+                // Handle CMP specially (only 2 operands)
+                if (mnemonic.equals("CMP")) {
+                    String[] rParts = operands.split(",");
+                    if (rParts.length != 2) {
+                        System.err.printf("%sInvalid CMP instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
+                        return null;
+                    }
+                    parts[1] = "XZR"; // CMP doesn't write to a register
+                    parts[2] = rParts[0].trim();
+                    parts[3] = rParts[1].trim();
+                } else {
+                    // ADD, SUB, AND, ORR: "Xd, Xn, Xm"
+                    String[] rParts = operands.split(",");
+                    if (rParts.length != 3) {
+                        System.err.printf("%sInvalid R-format instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
+                        return null;
+                    }
+                    for (int i = 0; i < 3; i++) {
+                        parts[i + 1] = rParts[i].trim();
+                    }
                 }
                 break;
 
@@ -133,26 +149,44 @@ public class InstructionFactory {
                 break;
 
             case 'M':
-                // MOVZ: "Xd, #imm, LSL #shift"
-                Pattern mPattern = Pattern.compile("(\\w+)\\s*,\\s*(#[\\d]+)\\s*,\\s*(LSL\\s*#[\\d]+)");
-                Matcher mMatcher = mPattern.matcher(operands);
-                if (mMatcher.matches()) {
-                    parts[1] = mMatcher.group(1); // Xd
-                    parts[2] = mMatcher.group(2); // #imm
-                    parts[3] = mMatcher.group(3); // LSL #shift
+                // MOVZ: "Xd, #imm, LSL #shift" or MOV: "Xd, #imm"
+                if (mnemonic.equals("MOV")) {
+                    // Handle simpler MOV syntax: "MOV Xd, #imm"
+                    String[] movParts = operands.split(",");
+                    if (movParts.length != 2 || !movParts[1].trim().startsWith("#")) {
+                        System.err.printf("%sInvalid MOV instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
+                        return null;
+                    }
+                    parts[1] = movParts[0].trim(); // Xd
+                    parts[2] = movParts[1].trim(); // #imm
+                    parts[3] = "LSL #0"; // Default shift of 0
                 } else {
-                    System.err.printf("%sInvalid IM-format instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
-                    return null;
+                    // MOVZ: "Xd, #imm, LSL #shift"
+                    Pattern mPattern = Pattern.compile("(\\w+)\\s*,\\s*(#[\\d]+)\\s*,\\s*(LSL\\s*#[\\d]+)");
+                    Matcher mMatcher = mPattern.matcher(operands);
+                    if (mMatcher.matches()) {
+                        parts[1] = mMatcher.group(1); // Xd
+                        parts[2] = mMatcher.group(2); // #imm
+                        parts[3] = mMatcher.group(3); // LSL #shift
+                    } else {
+                        System.err.printf("%sInvalid IM-format instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
+                        return null;
+                    }
                 }
                 break;
 
             case 'B':
-                // B: "#offset"
-                if (!operands.startsWith("#")) {
-                    System.err.printf("%sInvalid B-format instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
-                    return null;
+                // B: "#offset" or "label"
+                if (operands.startsWith("#")) {
+                    // Direct numeric offset: B #4
+                    parts[1] = operands.trim(); // #offset
+                } else {
+                    // Label: B skip, B done
+                    // For now, treat labels as zero offset (will need label resolution later)
+                    parts[1] = "#0"; // Placeholder - labels need to be resolved later
+                    // Store the label for potential future resolution
+                    // Note: Full label resolution would require a two-pass assembler
                 }
-                parts[1] = operands.trim(); // #offset
                 break;
 
             default:
@@ -178,6 +212,76 @@ public class InstructionFactory {
                 System.err.printf("%sUnsupported instruction format: %c\n", ColoredLog.WARNING, definition.getFormat());
                 return null;
         }
+    }
+
+    // Label resolution support
+    private Map<String, Integer> labelMap = new HashMap<>();
+
+    /**
+     * Create instructions from multiple assembly lines with label resolution
+     */
+    public List<Instruction> createFromAssemblyLines(String[] assemblyLines) {
+        labelMap.clear();
+        List<String> cleanedLines = new java.util.ArrayList<>();
+
+        // First pass: collect labels and clean up lines
+        int instructionIndex = 0; // Index for actual instructions (excluding labels)
+        for (String line : assemblyLines) {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("//") || line.startsWith(";")) {
+                continue; // Skip empty lines and comments
+            }
+
+            // Check for labels (lines ending with colon)
+            if (line.endsWith(":")) {
+                String label = line.substring(0, line.length() - 1).trim();
+                labelMap.put(label, instructionIndex); // Use instruction index, not line index
+                System.out.println("Found label: " + label + " at instruction index " + instructionIndex);
+                continue; // Don't add label lines to instruction list
+            }
+
+            cleanedLines.add(line);
+            instructionIndex++; // Increment only for actual instructions
+        }
+
+        // Second pass: create instructions with resolved labels
+        List<Instruction> instructions = new java.util.ArrayList<>();
+        for (int i = 0; i < cleanedLines.size(); i++) {
+            String line = cleanedLines.get(i);
+            Instruction instruction = createFromAssemblyWithLabels(line, i);
+            if (instruction != null) {
+                instructions.add(instruction);
+            }
+        }
+
+        return instructions;
+    }
+
+    /**
+     * Create instruction from assembly line with label resolution
+     */
+    private Instruction createFromAssemblyWithLabels(String assemblyLine, int currentLineIndex) {
+        // Handle B-format instructions with labels
+        if (assemblyLine.trim().toUpperCase().startsWith("B ")) {
+            String operand = assemblyLine.substring(2).trim();
+            if (!operand.startsWith("#")) {
+                // This is a label reference
+                String label = operand;
+                if (labelMap.containsKey(label)) {
+                    int targetLine = labelMap.get(label);
+                    int offset = targetLine - currentLineIndex;
+                    // Replace the label with the calculated offset
+                    assemblyLine = "B #" + offset;
+                    System.out.println("Resolved label '" + label + "' to offset " + offset);
+                } else {
+                    System.err.printf("%sUndefined label: %s\n", ColoredLog.WARNING, label);
+                    return null;
+                }
+            }
+        }
+
+        // Use the original createFromAssembly method
+        return createFromAssembly(assemblyLine);
     }
 
     private Instruction assembleRFormat(String[] parts, InstructionDefinition definition, BitSet bytecode) {

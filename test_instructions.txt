@@ -1,0 +1,3 @@
+MOV X1, #7
+MOV X2, #5
+CMP X1, X2

@@ -69,7 +69,7 @@ public class LEGv8Console {
 
     public static void main(String[] args) {
         InstructionConfigLoader configLoader = new InstructionConfigLoader();
-        if (!configLoader.loadConfig("D:/LEGv8_Simulator/LEGv8_Simulator/src/instruction/instructions.txt")) {
+        if (!configLoader.loadConfig("D:/LEGv8_Simulator/src/instruction/instructions.txt")) {
             System.err.println("Failed to load instructions.txt");
             return;
         }

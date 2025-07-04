@@ -1,5 +1,3 @@
-package datapath;
-
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.geom.RoundRectangle2D;
@@ -10,12 +8,13 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import javax.swing.Timer;
+import datapath.*;
 
 
 /**
  * A JPanel that visually represents the LEGv8 datapath, drawing components with PNG images and paths with destination labels.
  */
-public class DatapathPanel extends JPanel {
+public class DatapathGUI extends JPanel {
     private final Datapath datapath;
     private List<String> activeComponents;
     private List<String> activeBuses;
@@ -59,7 +58,7 @@ public class DatapathPanel extends JPanel {
     /**
      * Constructs the DatapathPanel.
      */
-    public DatapathPanel() {
+    public DatapathGUI() {
         this.datapath = new Datapath();
         this.activeComponents = new ArrayList<>();
         this.activeBuses = new ArrayList<>();
