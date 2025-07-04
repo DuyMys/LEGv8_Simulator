@@ -1,0 +1,15 @@
+// SOLUTION 1: Simple approach for -2 using SUBI
+SUBI X1, XZR, #2     // X1 = 0 - 2 = -2 (0xFFFFFFFFFFFFFFFE)
+MOV X2, #3
+SMULH X3, X1, X2     // X3 = high 64 bits of (-2 * 3) = -1
+
+// SOLUTION 2: Using multiple instructions to build 0xFFFFFFFFFFFFFFFE
+MOVZ X1, #0xFFFE, LSL #0     // Set bits 0-15 to 0xFFFE
+MOVK X1, #0xFFFF, LSL #16    // Set bits 16-31 to 0xFFFF, keep others
+MOVK X1, #0xFFFF, LSL #32    // Set bits 32-47 to 0xFFFF, keep others  
+MOVK X1, #0xFFFF, LSL #48    // Set bits 48-63 to 0xFFFF, keep others
+MOV X2, #3
+SMULH X3, X1, X2             // X3 = high 64 bits of (0xFFFFFFFFFFFFFFFE * 3)
+
+// SOLUTION 3: Alternative using SUB from zero register
+SUB X1, XZR, #2      // This might not work directly, better use SUBI

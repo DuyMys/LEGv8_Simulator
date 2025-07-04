@@ -561,11 +561,24 @@ public class CPUSimulator {
 
     // IM-Format: Instructions like MOVZ, MOVK (Move immediate)
     private void generateIMFormatSteps(IMFormatInstruction imInst) {
+        InstructionDefinition definition = imInst.getDefinition();
+        String mnemonic = definition.getMnemonic();
+        
         int rd = imInst.getRd_IM();
         int hw = imInst.getShift_IM();
         long imm16 = imInst.getImmediate_IM();
         int shiftAmount = hw * 16;
-        final long result = imm16 << shiftAmount;
+        
+        final long result;
+        if (mnemonic.equals("MOVK")) {
+            // MOVK: Keep existing bits, only update the specified 16-bit field
+            long currentValue = registerFile.readRegister(rd);
+            long mask = 0xFFFFL << shiftAmount; // Create mask for the 16-bit field
+            result = (currentValue & ~mask) | ((imm16 & 0xFFFFL) << shiftAmount);
+        } else {
+            // MOVZ: Zero other bits, set only the specified 16-bit field
+            result = imm16 << shiftAmount;
+        }
 
         // Step 1: Instruction Fetch
         generateInstructionFetchSteps();
@@ -580,7 +593,7 @@ public class CPUSimulator {
             null
         ));
 
-        // Step 3: Write-Back
+        // Step 3: Execute
         microStepQueue.add(new MicroStep(
             "Execute",
             new ArrayList<>(List.of("ALU", "MUX_memtoreg")), // Component tham gia có thể là Shifter hoặc ALU
@@ -590,7 +603,8 @@ public class CPUSimulator {
             )),
             null
         ));
-        // Step 4
+        
+        // Step 4: Write-Back
         microStepQueue.add(new MicroStep(
             "Write-Back",
             new ArrayList<>(List.of("MUX_memtoreg", "REGISTERS")),

@@ -177,12 +177,17 @@ public class InstructionFactory {
 
             case 'B':
                 // B: "#offset" or "label"
+                // For B-format, only need mnemonic and offset, so create a new array with just 2 elements
                 if (operands.startsWith("#")) {
                     // Direct numeric offset: B #4
+                    parts = new String[2];  // Reset to only 2 elements
+                    parts[0] = mnemonic;
                     parts[1] = operands.trim(); // #offset
                 } else {
                     // Label: B skip, B done
                     // For now, treat labels as zero offset (will need label resolution later)
+                    parts = new String[2];  // Reset to only 2 elements
+                    parts[0] = mnemonic;
                     parts[1] = "#0"; // Placeholder - labels need to be resolved later
                     // Store the label for potential future resolution
                     // Note: Full label resolution would require a two-pass assembler
@@ -310,7 +315,7 @@ public class InstructionFactory {
                 }
                 rd = parseRegister(parts[1]);
                 rn = parseRegister(parts[2]);
-                shamt = Integer.parseInt(parts[3].substring(1));
+                shamt = parseImmediate(parts[3]);
                 Instruction.setBits(bytecode, rd, 0, 4);
                 Instruction.setBits(bytecode, rn, 5, 9);
                 Instruction.setBits(bytecode, shamt, 10, 15);
@@ -351,7 +356,7 @@ public class InstructionFactory {
 
             int rd = parseRegister(parts[1]);
             int rn = parseRegister(parts[2]);
-            int immediate = Integer.parseInt(parts[3].substring(1));
+            int immediate = parseImmediate(parts[3]);
 
             if (immediate < -2048 || immediate > 2047) {
                 throw new IllegalArgumentException("Immediate value out of range (12-bit signed): " + immediate);
@@ -384,7 +389,7 @@ public class InstructionFactory {
 
             int rt = parseRegister(parts[1]);
             int rn = parseRegister(parts[2]);
-            int address = Integer.parseInt(parts[3].substring(1));
+            int address = parseImmediate(parts[3]);
 
             if (address < -256 || address > 255) {
                 throw new IllegalArgumentException("Address offset out of range (9-bit signed): " + address);
@@ -417,7 +422,7 @@ public class InstructionFactory {
             }
 
             int rd = parseRegister(parts[1]);
-            int immediate = Integer.parseInt(parts[2].substring(1));
+            int immediate = parseImmediate(parts[2]);
             String shiftStr = parts[3].substring(parts[3].toUpperCase().indexOf('#') + 1);
             int shift = Integer.parseInt(shiftStr) / 16;
 
@@ -453,7 +458,7 @@ public class InstructionFactory {
                 }
             }
 
-            int offset = Integer.parseInt(parts[1].substring(1));
+            int offset = parseImmediate(parts[1]);
 
             if (offset < -33554432 || offset > 33554431) {
                 throw new IllegalArgumentException("Branch offset out of range (26-bit signed): " + offset);
@@ -484,5 +489,28 @@ public class InstructionFactory {
             throw new IllegalArgumentException("Register index out of range: " + reg);
         }
         return regNum;
+    }
+
+    /**
+     * Parse immediate values that can be in decimal (#123) or hexadecimal (#0x1000) format
+     */
+    private int parseImmediate(String immediateStr) {
+        if (immediateStr == null || immediateStr.isEmpty() || !immediateStr.startsWith("#")) {
+            throw new IllegalArgumentException("Invalid immediate value format: " + immediateStr);
+        }
+
+        String valueStr = immediateStr.substring(1).trim(); // Remove the '#'
+
+        try {
+            if (valueStr.toLowerCase().startsWith("0x")) {
+                // Hexadecimal format
+                return Integer.parseInt(valueStr.substring(2), 16);
+            } else {
+                // Decimal format
+                return Integer.parseInt(valueStr);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid immediate value: " + immediateStr, e);
+        }
     }
 }

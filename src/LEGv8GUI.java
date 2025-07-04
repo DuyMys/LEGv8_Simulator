@@ -491,23 +491,6 @@ private JFrame datapathFrame;
         updateButtonStates();
     }
 
-    // private void stepBackProgram() {
-    //     if (simulator.getProgram().size() > 0 && simulator.getPc() > 0) {
-    //         simulator.setPc(simulator.getPc() - 2);
-    //         simulator.step();
-    //         updateStatus();
-    //     }
-    // }
-
-    // private void stepForwardProgram() {
-    //     try {
-    //         simulator.step();
-    //         updateStatus();
-    //     } catch (Exception e) {
-    //         outputArea.append("Error: " + e.getMessage() + "\n");
-    //     }
-    // }
-
     private void restartProgram() {
         simulator.reset();
         // Execution step tracking is now handled by simulator's micro-step system
@@ -533,7 +516,7 @@ private JFrame datapathFrame;
 
     private void showHelp() {
         JOptionPane.showMessageDialog(frame,
-                "Help:\n- Assemble: Load program\n- Run: Execute all\n- Step Forward/Back: Single step\n- Restart: Reset program\n- Clear All: Clear all fields\nSupported instructions: ADD, SUB, MOVZ, AND, ORR, LDUR, STUR, ADDI, SUBI, B, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, CMP, SMULH, UMULH",
+                "Help:\n- Assemble: Load program\n- Run: Execute all\n- Step Forward/Back: Single step\n- Restart: Reset program\n- Clear All: Clear all fields\nSupported instructions: ADD, SUB, MOVZ, AND, ORR, LDUR, STUR, ADDI, SUBI, B, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, CMP",
                 "Help", JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -675,6 +658,15 @@ private JFrame datapathFrame;
                         meaning = "Memory[" + parts[2].replace("[", "").replace("]", "").trim() + "] = " + parts[1].trim();
                     } else if (opcode.equals("B") && parts.length >= 2) {
                         meaning = "Branch to " + parts[1].trim();
+                    }
+                    else if (opcode.equals("MOV") && parts.length >= 3) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim();
+                    }
+                    else if (opcode.equals("MOVZ") && parts.length >= 3) {
+                        meaning = parts[1].trim() + " = " + parts[2].replace("#", "").trim();
+                        if (parts.length >= 5 && parts[3].equalsIgnoreCase("LSL")) {
+                            meaning += " << " + parts[4].replace("#", "").trim();
+                        }
                     }
                 }
             } catch (Exception e) {

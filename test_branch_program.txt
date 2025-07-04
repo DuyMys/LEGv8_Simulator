@@ -1,0 +1,5 @@
+MOVZ X0, #5, LSL #0
+B skip
+MOVZ X0, #6, LSL #0
+skip:
+ADD X1, X0, X0
