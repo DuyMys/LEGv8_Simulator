@@ -9,6 +9,10 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
@@ -79,16 +83,12 @@ private JFrame datapathFrame;
         buttonPanel.setBackground(BACKGROUND_COLOR);
         JButton assembleButton = createStyledButton("Assemble");
         JButton runButton = createStyledButton("Run");
-        //JButton stepBackButton = createStyledButton("Step Back");
-        //JButton stepForwardButton = createStyledButton("Step Forward");
         JButton restartButton = createStyledButton("Restart");
         JButton clearAllButton = createStyledButton("Clear All");
         JButton datapathButton = createStyledButton("Datapath");
         JButton helpButton = createStyledButton("Help");
         buttonPanel.add(assembleButton);
         buttonPanel.add(runButton);
-        //buttonPanel.add(stepBackButton);
-        //buttonPanel.add(stepForwardButton);
         buttonPanel.add(restartButton);
         buttonPanel.add(clearAllButton);
         buttonPanel.add(helpButton);
@@ -321,8 +321,6 @@ private JFrame datapathFrame;
         // Xử lý sự kiện nút
         assembleButton.addActionListener(e -> assembleProgram());
         runButton.addActionListener(e -> runProgram());
-        //stepBackButton.addActionListener(e -> stepBackProgram());
-        //stepForwardButton.addActionListener(e -> stepForwardProgram());
         restartButton.addActionListener(e -> restartProgram());
         clearAllButton.addActionListener(e -> clearAll());
         helpButton.addActionListener(e -> showHelp());
@@ -330,7 +328,7 @@ private JFrame datapathFrame;
         datapathButton.addActionListener(e -> {
     datapathFrame = new JFrame("LEGv8 Datapath Visualization");
     datapathFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-    datapathFrame.setSize(1650, 650);
+    datapathFrame.setSize(1800, 750);
 
     datapathPanel = new DatapathPanel();
 
@@ -343,38 +341,54 @@ private JFrame datapathFrame;
     JLabel currentInstructionLabel = new JLabel("Executing: ");
     controlPanel.add(currentInstructionLabel);
 
+    // Create state panel to show execution steps
+    JPanel statePanel = createExecutionStatePanel();
+    
     stepDatapathButton.addActionListener(ev -> {
         simulator.step();
+        // No need to manually track execution step - simulator handles micro-steps
         currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
         datapathPanel.setActiveComponentsAndBuses(
             simulator.getActiveComponents(),
             simulator.getActiveBuses(),
             simulator.getBusDataValues()
         );
-            updateStatus();
-            
-       // String currentInstr = simulator.getLastExecutedInstruction();
-      //  JOptionPane.showMessageDialog(datapathFrame, "Executing: " + currentInstr, "Current Instruction", JOptionPane.INFORMATION_MESSAGE);
-
+        updateExecutionStatePanel(statePanel);
+        updateStatus();
     });
 
     backDatapathButton.addActionListener(ev -> {
-currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
-        if (simulator.getPc() > 0) {
-            simulator.setPc(simulator.getPc() - 2);
-            simulator.step();
-            datapathPanel.setActiveComponentsAndBuses(
-                simulator.getActiveComponents(),
-                simulator.getActiveBuses(),
-                simulator.getBusDataValues()
-            );
+        if (simulator.canStepBack()) {
+            boolean success = simulator.stepBack();
+            if (success) {
+                // No need to manually track execution step - simulator handles micro-steps
+                currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
+                datapathPanel.setActiveComponentsAndBuses(
+                    simulator.getActiveComponents(),
+                    simulator.getActiveBuses(),
+                    simulator.getBusDataValues()
+                );
+                updateDatapathVisualization();
+                updateButtonStates(backDatapathButton, stepDatapathButton);
+                updateExecutionStatePanel(statePanel);
+                updateStatus();
+            }
         }
     });
 
+    // Create main layout with datapath on left and state panel on right
     JPanel mainPanel = new JPanel(new BorderLayout());
     mainPanel.add(controlPanel, BorderLayout.NORTH);
-    mainPanel.add(new JScrollPane(datapathPanel), BorderLayout.CENTER);
+    
+    JPanel datapathCenterPanel = new JPanel(new BorderLayout());
+    datapathCenterPanel.add(new JScrollPane(datapathPanel), BorderLayout.CENTER);
+    datapathCenterPanel.add(statePanel, BorderLayout.EAST);
+    
+    mainPanel.add(datapathCenterPanel, BorderLayout.CENTER);
 
+    // Initialize the state panel with current state
+    updateExecutionStatePanel(statePanel);
+    
     // If program is finished, show final state
     if (simulator.isFinished()) {
         datapathPanel.setActiveComponentsAndBuses(
@@ -382,6 +396,7 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
             simulator.getActiveBuses(),
             simulator.getBusDataValues()
         );
+        updateExecutionStatePanel(statePanel);
     }
 
     datapathFrame.add(mainPanel);
@@ -460,20 +475,20 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
     private void assembleProgram() {
         String[] lines = codeEditor.getText().split("\n");
         simulator.loadProgram(lines);
+        // Execution step tracking is now handled by simulator's micro-step system
         updateStatus();
         updateInstructionTable();
+        updateButtonStates();
         if (outputArea != null) {
             outputArea.append("Program assembled with " + simulator.getProgram().size() + " instruction(s).\n");
+            outputArea.append("Micro-step execution tracking enabled.\n");
         }
     }
 
     private void runProgram() {
-        try {
-            simulator.executeProgram();
-            updateStatus();
-        } catch (Exception e) {
-            outputArea.append("Error: " + e.getMessage() + "\n");
-        }
+        simulator.executeProgram();
+        updateStatus();
+        updateButtonStates();
     }
 
     // private void stepBackProgram() {
@@ -495,12 +510,14 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
 
     private void restartProgram() {
         simulator.reset();
-        
+        // Execution step tracking is now handled by simulator's micro-step system
+        if (datapathPanel != null) {
+            datapathPanel.clearHistory();
+        }
         populateInstructionTable();
         updateStatus();
-        if (outputArea != null) {
-            outputArea.append("Program restarted.\n");
-        }
+        updateDatapathVisualization();
+        updateButtonStates();
         simulator.getProgram().clear();
     }
 
@@ -508,11 +525,9 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
         codeEditor.setText(""); 
         populateInstructionTable();   
         updateStatus();
+        updateButtonStates();
+        // Execution step tracking is now handled by simulator's micro-step system
         simulator.getProgram().clear();
-        if (outputArea != null) {
-            outputArea.setText(""); 
-            outputArea.append("All cleared.\n");
-        }
         simulator.reset();  
     }
 
@@ -672,10 +687,306 @@ currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruc
             lineNumber++;
         }
     }
+    private void updateDatapathVisualization() {
+        // Update register values in DatapathPanel
+        for (int i = 0; i < 32; i++) {
+            long regValue = simulator.getRegisterFile().readRegister(i);
+            datapathPanel.updateRegisterValue(i, regValue);
+        }
 
+        // Update memory state in DatapathPanel
+        Memory memory = simulator.getMemory();
+        if (memory != null) {
+            Map<Long, Long> memoryState = new HashMap<>();
+            String selectedTab = (String) memoryTabSelector.getSelectedItem();
+            long baseAddress = switch (selectedTab) {
+                case "Stack" -> 0xFFFFFFF0L;
+                default -> 0L;
+            };
+            int step = 8;
+            int maxRows = 10;
+            for (int i = 0; i < maxRows; i++) {
+                long address = baseAddress + (i * step);
+                try {
+                    long value = memory.read(address, 8);
+                    memoryState.put(address, value);
+                    datapathPanel.updateMemoryValue(address, value);
+                } catch (Exception e) {
+                    // Handle memory read errors if needed
+                }
+            }
+        }
+
+        // Update active components and buses
+        datapathPanel.setActiveComponentsAndBuses(
+            simulator.getActiveComponents(),
+            simulator.getActiveBuses(),
+            simulator.getBusDataValues()
+        );
+
+        // Record execution state
+        boolean[] flags = {
+            simulator.isZeroFlag(),
+            simulator.isNegativeFlag(),
+            simulator.isOverflowFlag(),
+            simulator.isCarryFlag()
+        };
+        datapathPanel.recordExecutionState(
+            simulator.getCurrentHistoryStepDescription(),
+            simulator.getPc(),
+            flags,
+            simulator.getLastExecutedInstruction(),
+            simulator.isFinished(),
+            0 // Micro-step index
+        );
+    }
+
+    // State panel components for tracking execution steps
+    private JLabel fetchLabel;
+    private JLabel decodeLabel;
+    private JLabel executeLabel;
+    private JLabel writeBackLabel;
+    private JTextArea stateDetailsArea;
+    
+    private JPanel createExecutionStatePanel() {
+        JPanel statePanel = new JPanel(new BorderLayout());
+        statePanel.setPreferredSize(new Dimension(300, 600));
+        statePanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color.GRAY), 
+            "Execution State", 
+            TitledBorder.CENTER, 
+            TitledBorder.TOP
+        ));
+        statePanel.setBackground(Color.WHITE);
+        
+        // Create step indicators
+        JPanel stepsPanel = new JPanel(new GridLayout(4, 1, 5, 5));
+        stepsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        stepsPanel.setBackground(Color.WHITE);
+        
+        // Initialize step labels
+        fetchLabel = createStepLabel("1. FETCH", "Fetch instruction from memory");
+        decodeLabel = createStepLabel("2. DECODE", "Decode instruction and read registers");
+        executeLabel = createStepLabel("3. EXECUTE", "Perform ALU operation or calculate address");
+        writeBackLabel = createStepLabel("4. WRITE BACK", "Write result to register or memory");
+        
+        stepsPanel.add(fetchLabel);
+        stepsPanel.add(decodeLabel);
+        stepsPanel.add(executeLabel);
+        stepsPanel.add(writeBackLabel);
+        
+        // Create details area
+        stateDetailsArea = new JTextArea(12, 25);
+        stateDetailsArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        stateDetailsArea.setEditable(false);
+        stateDetailsArea.setBackground(new Color(248, 248, 248));
+        stateDetailsArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        stateDetailsArea.setText("Ready to execute...\n\nStep through instructions to see execution details.\n\nEach instruction may have different\nnumber of micro-steps.");
+        
+        JScrollPane detailsScroll = new JScrollPane(stateDetailsArea);
+        detailsScroll.setBorder(BorderFactory.createTitledBorder("Micro-Step Details"));
+        
+        statePanel.add(stepsPanel, BorderLayout.NORTH);
+        statePanel.add(detailsScroll, BorderLayout.CENTER);
+        
+        return statePanel;
+    }
+    
+    private JLabel createStepLabel(String stepName, String description) {
+        JLabel label = new JLabel("<html><b>" + stepName + "</b><br/><small>" + description + "</small></html>");
+        label.setOpaque(true);
+        label.setBackground(Color.LIGHT_GRAY);
+        label.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color.GRAY),
+            BorderFactory.createEmptyBorder(8, 10, 8, 10)
+        ));
+        label.setVerticalAlignment(SwingConstants.TOP);
+        return label;
+    }
+    
+    private void updateExecutionStatePanel(JPanel statePanel) {
+        if (statePanel == null) return;
+        
+        // Reset all step indicators
+        resetStepIndicators();
+        
+        // Get current execution information from simulator
+        String currentInstruction = simulator.getLastExecutedInstruction();
+        // Simulate execution step based on available information
+        int currentStep = getCurrentSimulatedExecutionStep();
+        
+        // Update step indicators based on current step
+        updateStepIndicator(currentStep);
+        
+        // Update details area
+        updateStepDetails(currentInstruction, currentStep);
+    }
+    
+    private void resetStepIndicators() {
+        if (fetchLabel != null) fetchLabel.setBackground(Color.LIGHT_GRAY);
+        if (decodeLabel != null) decodeLabel.setBackground(Color.LIGHT_GRAY);
+        if (executeLabel != null) executeLabel.setBackground(Color.LIGHT_GRAY);
+        if (writeBackLabel != null) writeBackLabel.setBackground(Color.LIGHT_GRAY);
+    }
+    
+    private void updateStepIndicator(int step) {
+        Color activeColor = new Color(144, 238, 144); // Light green
+        Color completedColor = new Color(173, 216, 230); // Light blue
+        
+        switch (step) {
+            case 1: // Fetch
+                if (fetchLabel != null) fetchLabel.setBackground(activeColor);
+                break;
+            case 2: // Decode
+                if (fetchLabel != null) fetchLabel.setBackground(completedColor);
+                if (decodeLabel != null) decodeLabel.setBackground(activeColor);
+                break;
+            case 3: // Execute
+                if (fetchLabel != null) fetchLabel.setBackground(completedColor);
+                if (decodeLabel != null) decodeLabel.setBackground(completedColor);
+                if (executeLabel != null) executeLabel.setBackground(activeColor);
+                break;
+            case 4: // Write Back
+                if (fetchLabel != null) fetchLabel.setBackground(completedColor);
+                if (decodeLabel != null) decodeLabel.setBackground(completedColor);
+                if (executeLabel != null) executeLabel.setBackground(completedColor);
+                if (writeBackLabel != null) writeBackLabel.setBackground(activeColor);
+                break;
+            default:
+                // No active step
+                break;
+        }
+    }
+    
+    private void updateStepDetails(String instruction, int step) {
+        if (stateDetailsArea == null) return;
+        
+        StringBuilder details = new StringBuilder();
+        details.append("Current Instruction: ").append(instruction != null ? instruction : "None").append("\n");
+        details.append("Program Counter: 0x").append(String.format("%08X", simulator.getPc())).append("\n");
+        
+        // Show current micro-step information
+        String microStepDesc = simulator.getCurrentMicroStepDescription();
+        details.append("Micro-step: ").append(microStepDesc).append("\n");
+        details.append("Step ").append(simulator.getCurrentMicroStepIndex() + 1)
+               .append(" of ").append(simulator.getTotalMicroSteps()).append("\n\n");
+        
+        switch (step) {
+            case 1:
+                details.append("FETCH PHASE:\n");
+                details.append("- Reading instruction from memory at PC\n");
+                details.append("- PC = 0x").append(String.format("%08X", simulator.getPc())).append("\n");
+                details.append("- Instruction = ").append(instruction != null ? instruction : "Unknown").append("\n");
+                break;
+            case 2:
+                details.append("DECODE PHASE:\n");
+                details.append("- Parsing instruction fields\n");
+                details.append("- Reading source registers\n");
+                details.append("- Generating control signals\n");
+                if (instruction != null && !instruction.isEmpty()) {
+                    details.append("- Opcode: ").append(getOpcode(instruction)).append("\n");
+                }
+                break;
+            case 3:
+                details.append("EXECUTE PHASE:\n");
+                details.append("- Performing ALU operation\n");
+                details.append("- Calculating memory address (if needed)\n");
+                details.append("- Updating flags\n");
+                details.append("- Zero Flag: ").append(simulator.isZeroFlag() ? "1" : "0").append("\n");
+                details.append("- Negative Flag: ").append(simulator.isNegativeFlag() ? "1" : "0").append("\n");
+                break;
+            case 4:
+                details.append("WRITE BACK PHASE:\n");
+                details.append("- Writing result to destination\n");
+                details.append("- Updating PC for next instruction\n");
+                details.append("- Committing changes to register file\n");
+                break;
+            default:
+                details.append("Ready to execute next instruction...\n");
+                details.append("\nUse 'Step Datapath' to advance through\n");
+                details.append("the execution phases.");
+                break;
+        }
+        
+        // Add active component information
+        List<String> activeComponents = simulator.getActiveComponents();
+        if (!activeComponents.isEmpty()) {
+            details.append("\nActive Components:\n");
+            for (String component : activeComponents) {
+                details.append("- ").append(component).append("\n");
+            }
+        }
+        
+        stateDetailsArea.setText(details.toString());
+    }
+    
+    private String getOpcode(String instruction) {
+        if (instruction == null || instruction.isEmpty()) return "Unknown";
+        String[] parts = instruction.trim().split("\\s+");
+        return parts.length > 0 ? parts[0] : "Unknown";
+    }
+    
+    private JButton stepButton;
+    private JButton stepBackButton;
+    private JButton stepForwardButton;
+    
+
+    
+    
+    private void updateButtonStates(JButton backButton, JButton stepButton) {
+        backButton.setEnabled(simulator.canStepBack());
+        stepButton.setEnabled(!simulator.isFinished());
+    }
+    
+    private void updateButtonStates() {
+        if (stepBackButton != null) {
+            stepBackButton.setEnabled(simulator.canStepBack());
+        }
+        if (stepButton != null) {
+            stepButton.setEnabled(!simulator.isFinished());
+        }
+        if (stepForwardButton != null) {
+            stepForwardButton.setEnabled(simulator.canStepForward());
+        }
+    }
+    
+
+    
+    public void loadProgram(String[] assemblyLines) {
+        simulator.loadProgram(assemblyLines);
+        updateDatapathVisualization(); // Show initial state
+        updateButtonStates();
+    }
+    
+    public void resetProgram() {
+        simulator.reset();
+        datapathPanel.clearHistory();
+        updateDatapathVisualization();
+        updateButtonStates();
+    }
+    
+    private int getCurrentSimulatedExecutionStep() {
+        if (simulator.isFinished()) {
+            return 0; 
+        }
+        
+        int totalSteps = simulator.getTotalMicroSteps();
+        if (totalSteps == 0) return 0;
+
+        String stepDescription = simulator.getCurrentMicroStepDescription();        
+        if (stepDescription.contains("Step 1:")) {
+            return 1; // Fetch phase
+        } else if (stepDescription.contains("Step 2:")) {
+            return 2; // Decode phase
+        } else if (stepDescription.contains("Step 3:")) {
+            return 3; // Execute phase
+        } else {
+            return 4; // Write-back phase
+        }
+    }
     public static void main(String[] args) {
         InstructionConfigLoader configLoader = new InstructionConfigLoader();
-        if (!configLoader.loadConfig("D:/LEGv8_Simulator/LEGv8_Simulator/src/instruction/instructions.txt")) {
+        if (!configLoader.loadConfig("D:/LEGv8_Simulator/src/instruction/instructions.txt")) {
             System.err.println("Failed to load instructions.txt");
             return;
         }
