@@ -1,4 +1,0 @@
-MOV X1, #10         // X1 = 10 (decimal)
-MOV X2, #0x1000     // X2 = 4096 (hexadecimal)
-STUR X1, [X2, #0]   // Store X1 to memory at X2 + 0
-LDUR X3, [X2, #0]   // Load from memory at X2 + 0 into X3
