@@ -332,10 +332,11 @@ private JFrame datapathFrame;
 
     datapathPanel = new DatapathPanel();
 
-    // Create control panel with Step, Back, and Auto Run buttons
+    // Create control panel with Step, Back, Auto Run, and Restart buttons
     JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
     JButton stepDatapathButton = new JButton("Step Datapath");
     JButton backDatapathButton = new JButton("Back Datapath");
+    JButton restartDatapathButton = new JButton("Restart Datapath");
     JButton autoRunButton = new JButton("Auto Run");
     JButton stopAutoRunButton = new JButton("Stop Auto");
     
@@ -347,6 +348,7 @@ private JFrame datapathFrame;
     
     controlPanel.add(backDatapathButton);
     controlPanel.add(stepDatapathButton);
+    controlPanel.add(restartDatapathButton);
     controlPanel.add(autoRunButton);
     controlPanel.add(stopAutoRunButton);
     controlPanel.add(speedLabel);
@@ -380,6 +382,8 @@ private JFrame datapathFrame;
         );
         updateExecutionStatePanel(statePanel);
         updateStatus();
+        // Update button states after stepping
+        updateButtonStates(backDatapathButton, stepDatapathButton);
     });
 
     backDatapathButton.addActionListener(ev -> {
@@ -399,6 +403,39 @@ private JFrame datapathFrame;
                 updateStatus();
             }
         }
+    });
+
+    restartDatapathButton.addActionListener(ev -> {
+        // Stop auto-run if it's running
+        if (autoRunTimer.isRunning()) {
+            autoRunTimer.stop();
+            autoRunButton.setEnabled(true);
+            stopAutoRunButton.setEnabled(false);
+            datapathPanel.setAnimationCompletionCallback(null); // Clear callback
+        }
+        
+        // Reset the simulator to the beginning
+        simulator.reset();
+        
+        // Clear datapath history
+        datapathPanel.clearHistory();
+        
+        // Update visualization to show initial state
+        updateDatapathVisualization();
+        
+        // Update button states properly
+        backDatapathButton.setEnabled(simulator.canStepBack()); // Should be false at start
+        stepDatapathButton.setEnabled(!simulator.getProgram().isEmpty() && !simulator.isFinished()); // Enable if program exists
+        autoRunButton.setEnabled(!simulator.getProgram().isEmpty());
+        
+        // Update execution state panel
+        updateExecutionStatePanel(statePanel);
+        
+        // Update main GUI status
+        updateStatus();
+        
+        // Reset instruction label
+        currentInstructionLabel.setText("Ready to execute");
     });
 
     // Auto Run functionality
@@ -1080,7 +1117,7 @@ private JFrame datapathFrame;
     }
     public static void main(String[] args) {
         InstructionConfigLoader configLoader = new InstructionConfigLoader();
-        if (!configLoader.loadConfig("D:/LEGv8_Simulator/LEGv8_Simulator/src/instruction/instructions.txt")) {
+        if (!configLoader.loadConfig("D:/LEGv8_Simulator/src/instruction/instructions.txt")) {
             System.err.println("Failed to load instructions.txt");
             return;
         }

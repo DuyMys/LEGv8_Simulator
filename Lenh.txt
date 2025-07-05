@@ -1,27 +1,28 @@
--- Chấm . là làm rồi
 R-Format:
-ADD Xd, Xn, Xm  .
-SUB Xd, Xn, Xm  .
-AND Xd, Xn, Xm  .
-ORR Xd, Xn, Xm  .
-EOR Xd, Xn, Xm
-MUL Xd, Xn, Xm
+ADD  Xd, Xn, Xm     // Xd = Xn + Xm
+SUB  Xd, Xn, Xm     // Xd = Xn - Xm
+AND  Xd, Xn, Xm     // Xd = Xn & Xm
+ORR  Xd, Xn, Xm     // Xd = Xn | Xm
+EOR  Xd, Xn, Xm     // Xd = Xn ^ Xm (xor)
+MUL  Xd, Xn, Xm     // Xd = Xn * Xm
+SDIV Xd, Xn, Xm     // Xd = Xn / Xm (chia có dấu)
+UDIV Xd, Xn, Xm     // Xd = Xn / Xm (chia không dấu)
+CMP  Xd, Xn         // So sánh Xd - Xn (gán cờ)
+LSL  Xd, Xn, Xm     // Dịch trái logic Xn << Xm bit
+LSR  Xd, Xn, Xm     // Dịch phải logic Xn >> Xm bit
 
 I-Format:
-ADDI Xd, Xn, #imm  .
-SUBI Xd, Xn, #imm  .
-CMP Xn, #imm    // So sánh
-MOVZ Xd, #imm  .
+ADDI Xd, Xn, #imm   // Xd = Xn + imm
+SUBI Xd, Xn, #imm   // Xd = Xn - imm
+MOV  Xd, Xn         // Gán Xd = Xn
+MOVZ Xd, #imm   
+
+IM-Format:
+MOVZ Xd, #imm {, LSL #shift}
 
 D-Format:
 LDUR Xt, [Xn, #offset]  .   // Load: Lấy dữ liệu từ bộ nhớ tại Xn + offset và đưa vào Xt
 STUR Xt, [Xn, #offset]  .  // Store: Lưu dữ liệu từ Xt vào bộ nhớ tại Xn + offset
 
-CB-Format:
-CBZ Xt, label   // Nhảy nếu bằng 0
-CBZN Xt, label  // Nhảy nếu != 0
-
 B-Format:
 B label  . // Nhảy luôn  
-BL label  // Nhảy gọi hàm
-RET       // Trả về
