@@ -536,7 +536,7 @@ private JFrame datapathFrame;
         if (memory != null) {
             String selectedTab = (String) memoryTabSelector.getSelectedItem();
             long baseAddress = switch (selectedTab) {
-                case "Stack" -> 0xFFFFFFF0L; // Giả định Stack bắt đầu từ 0xFFFFFFF0
+                case "Stack" -> 0x00000000L; // Giả định Stack bắt đầu từ 0xFFFFFFF0
                // case "Text" -> 0x10000000L;  // Giả định Text bắt đầu từ 0x10000000
                 default -> 0L;               // Data bắt đầu từ 0x00000000
             };
@@ -692,7 +692,7 @@ private JFrame datapathFrame;
             Map<Long, Long> memoryState = new HashMap<>();
             String selectedTab = (String) memoryTabSelector.getSelectedItem();
             long baseAddress = switch (selectedTab) {
-                case "Stack" -> 0xFFFFFFF0L;
+                case "Stack" -> 0x00000000L;
                 default -> 0L;
             };
             int step = 8;
@@ -978,7 +978,7 @@ private JFrame datapathFrame;
     }
     public static void main(String[] args) {
         InstructionConfigLoader configLoader = new InstructionConfigLoader();
-        if (!configLoader.loadConfig("D:/LEGv8_Simulator/src/instruction/instructions.txt")) {
+        if (!configLoader.loadConfig("D:/LEGv8_Simulator/LEGv8_Simulator/src/instruction/instructions.txt")) {
             System.err.println("Failed to load instructions.txt");
             return;
         }
