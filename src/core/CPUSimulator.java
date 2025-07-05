@@ -275,9 +275,9 @@ public class CPUSimulator {
             )),
             new HashMap<>(Map.of(
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), iInst.getInstructionHex(),
-                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("Imm: %d", immediate),
+                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("%d", immediate),
                 BusID.REGISTERS_TO_ALU_READ1.name(), String.format("%s: %d", rn, rnValue),
-                BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name(), "ALUSrc: 1"
+                BusID.CONTROL_ALUSRC_TO_MUX_ALUsrc.name(), "1"
             )),
             null
         ));
@@ -465,7 +465,7 @@ public class CPUSimulator {
             new HashMap<>(Map.of(
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), bInst.getInstructionHex(),
                 BusID.PC_TO_ADD_2.name(), String.format("0x%X", this.pc),
-                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("Imm: %d", offset),
+                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("%d", offset),
                 BusID.SIGN_EXTEND_TO_SHIFT_LEFT_2.name(), String.valueOf(offset),
                 BusID.ADD_2_TO_MUX_PCSRC.name(), String.format("0x%X", targetPc)
             )),
@@ -561,52 +561,54 @@ public class CPUSimulator {
 
     // IM-Format: Instructions like MOVZ, MOVK (Move immediate)
     private void generateIMFormatSteps(IMFormatInstruction imInst) {
-        InstructionDefinition definition = imInst.getDefinition();
-        String mnemonic = definition.getMnemonic();
-        
         int rd = imInst.getRd_IM();
         int hw = imInst.getShift_IM();
         long imm16 = imInst.getImmediate_IM();
         int shiftAmount = hw * 16;
-        
-        final long result;
-        if (mnemonic.equals("MOVK")) {
-            // MOVK: Keep existing bits, only update the specified 16-bit field
-            long currentValue = registerFile.readRegister(rd);
-            long mask = 0xFFFFL << shiftAmount; // Create mask for the 16-bit field
-            result = (currentValue & ~mask) | ((imm16 & 0xFFFFL) << shiftAmount);
-        } else {
-            // MOVZ: Zero other bits, set only the specified 16-bit field
-            result = imm16 << shiftAmount;
-        }
+        final long result = imm16 << shiftAmount;
 
         // Step 1: Instruction Fetch
         generateInstructionFetchSteps();
 
         // Step 2: Decode
         microStepQueue.add(new MicroStep(
-            "Decode",
-            new ArrayList<>(List.of("CONTROL_UNIT", "SIGN_EXTEND", "MUX_ALUsrc", "INSTRUCTION_MEMORY")),
+            "Step 2: Decode",
+            new ArrayList<>(List.of("CONTROL_UNIT", "SIGN_EXTEND", "INSTRUCTION_MEMORY")),
             new ArrayList<>(List.of(BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
+                    BusID.INSTRUCTION_MEMORY_.name(),
                     BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name())),
-            new HashMap<>(Map.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm16))),
+            new HashMap<>(
+                Map.of(
+                    BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), imInst.getInstructionHex(),
+                    BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("%d", imm16))),
             null
         ));
 
-        // Step 3: Execute
         microStepQueue.add(new MicroStep(
-            "Execute",
+            "Step 2: Decode",
+            new ArrayList<>(List.of("MUX_ALUsrc", "SIGN_EXTEND")),
+            new ArrayList<>(List.of(BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name())),
+            new HashMap<>(Map.of(
+                BusID.SIGN_EXTEND_TO_MUX_ALUsrc.name(), String.valueOf(imm16)
+            )),
+            null
+        ));
+
+        // Step 3: 
+        microStepQueue.add(new MicroStep(
+            "Step 3: Execute",
             new ArrayList<>(List.of("ALU", "MUX_memtoreg")), // Component tham gia có thể là Shifter hoặc ALU
-            new ArrayList<>(List.of(BusID.ALU_TO_MUX_memtoreg_RESULT.name())),
+            new ArrayList<>(List.of(
+                BusID.MUX_ALUsrc_TO_ALU.name(),
+                BusID.ALU_TO_MUX_memtoreg_RESULT.name())),
             new HashMap<>(Map.of(
                 BusID.ALU_TO_MUX_memtoreg_RESULT.name(), String.format("0x%X", result)
             )),
             null
         ));
-        
-        // Step 4: Write-Back
+        // Step 4
         microStepQueue.add(new MicroStep(
-            "Write-Back",
+            "Step 4: Write-Back",
             new ArrayList<>(List.of("MUX_memtoreg", "REGISTERS")),
             new ArrayList<>(List.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name())),
             new HashMap<>(Map.of(BusID.MUX_memtoreg_TO_REGISTERS_WRITE.name(), String.valueOf(result))),

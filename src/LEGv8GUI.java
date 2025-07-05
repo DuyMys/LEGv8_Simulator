@@ -332,20 +332,45 @@ private JFrame datapathFrame;
 
     datapathPanel = new DatapathPanel();
 
-    // Create control panel with Step and Back buttons
+    // Create control panel with Step, Back, and Auto Run buttons
     JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
     JButton stepDatapathButton = new JButton("Step Datapath");
     JButton backDatapathButton = new JButton("Back Datapath");
+    JButton autoRunButton = new JButton("Auto Run");
+    JButton stopAutoRunButton = new JButton("Stop Auto");
+    
+    // Speed control for auto-run
+    JLabel speedLabel = new JLabel("Speed:");
+    JSlider speedSlider = new JSlider(JSlider.HORIZONTAL, 100, 3000, 1000);
+    speedSlider.setPreferredSize(new Dimension(100, 25));
+    speedSlider.setToolTipText("Controls auto-run delay and bus animation speed (100ms - 3000ms)");
+    
     controlPanel.add(backDatapathButton);
     controlPanel.add(stepDatapathButton);
+    controlPanel.add(autoRunButton);
+    controlPanel.add(stopAutoRunButton);
+    controlPanel.add(speedLabel);
+    controlPanel.add(speedSlider);
+    
     JLabel currentInstructionLabel = new JLabel("Executing: ");
     controlPanel.add(currentInstructionLabel);
+    
+    // Timer for auto-run functionality
+    Timer autoRunTimer = new Timer(7000, null); // Initial 7 second delay
+    stopAutoRunButton.setEnabled(false); // Initially disabled
+    
+    // Update timer delay and animation speed when slider changes
+    speedSlider.addChangeListener(changeEvent -> {
+        autoRunTimer.setDelay(speedSlider.getValue());
+        datapathPanel.setAnimationSpeed(speedSlider.getValue());
+    });
 
     // Create state panel to show execution steps
     JPanel statePanel = createExecutionStatePanel();
-    
     stepDatapathButton.addActionListener(ev -> {
         simulator.step();
+        // Set animation speed from slider
+        datapathPanel.setAnimationSpeed(speedSlider.getValue());
         // No need to manually track execution step - simulator handles micro-steps
         currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
         datapathPanel.setActiveComponentsAndBuses(
@@ -376,6 +401,74 @@ private JFrame datapathFrame;
         }
     });
 
+    // Auto Run functionality
+    autoRunButton.addActionListener(ev -> {
+        if (!simulator.isFinished()) {
+            autoRunButton.setEnabled(false);
+            stopAutoRunButton.setEnabled(true);
+            stepDatapathButton.setEnabled(false);
+            backDatapathButton.setEnabled(false);
+            
+            // Stop the timer as we'll use animation completion callback
+            autoRunTimer.stop();
+            
+            // Set animation speed from slider
+            datapathPanel.setAnimationSpeed(speedSlider.getValue());
+            
+            // Set up animation completion callback for auto-run
+            datapathPanel.setAnimationCompletionCallback(() -> {
+                // This runs when animation completes
+                SwingUtilities.invokeLater(() -> {
+                    if (!simulator.isFinished() && stopAutoRunButton.isEnabled()) {
+                        // Execute next step
+                        simulator.step();
+                        currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
+                        datapathPanel.setActiveComponentsAndBuses(
+                            simulator.getActiveComponents(),
+                            simulator.getActiveBuses(),
+                            simulator.getBusDataValues()
+                        );
+                        updateExecutionStatePanel(statePanel);
+                        updateStatus();
+                    } else {
+                        // Program finished or stopped, reset auto-run
+                        autoRunTimer.stop();
+                        autoRunButton.setEnabled(true);
+                        stopAutoRunButton.setEnabled(false);
+                        stepDatapathButton.setEnabled(!simulator.isFinished());
+                        backDatapathButton.setEnabled(simulator.canStepBack());
+                        currentInstructionLabel.setText(simulator.isFinished() ? "Execution Complete" : "Auto-run stopped");
+                        datapathPanel.setAnimationCompletionCallback(null); // Clear callback
+                    }
+                });
+            });
+            
+            // Execute the first step to start the auto-run
+            simulator.step();
+            currentInstructionLabel.setText("Executing: " + simulator.getLastExecutedInstruction());
+            datapathPanel.setActiveComponentsAndBuses(
+                simulator.getActiveComponents(),
+                simulator.getActiveBuses(),
+                simulator.getBusDataValues()
+            );
+            updateExecutionStatePanel(statePanel);
+            updateStatus();
+            
+        } else {
+            currentInstructionLabel.setText("Program already finished");
+        }
+    });
+
+    // Stop Auto Run functionality
+    stopAutoRunButton.addActionListener(ev -> {
+        autoRunTimer.stop();
+        autoRunButton.setEnabled(true);
+        stopAutoRunButton.setEnabled(false);
+        stepDatapathButton.setEnabled(!simulator.isFinished());
+        backDatapathButton.setEnabled(simulator.canStepBack());
+        datapathPanel.setAnimationCompletionCallback(null); // Clear callback
+    });
+
     // Create main layout with datapath on left and state panel on right
     JPanel mainPanel = new JPanel(new BorderLayout());
     mainPanel.add(controlPanel, BorderLayout.NORTH);
@@ -401,10 +494,19 @@ private JFrame datapathFrame;
 
     datapathFrame.add(mainPanel);
     datapathFrame.setLocationRelativeTo(null);
-    datapathFrame.setVisible(true);
+    
+    // Clean up timer when window is closed
+    datapathFrame.addWindowListener(new WindowAdapter() {
+        @Override
+        public void windowClosing(WindowEvent e) {
+            if (autoRunTimer.isRunning()) {
+                autoRunTimer.stop();
+            }
+        }
     });
-        
-
+    
+    datapathFrame.setVisible(true);
+        });
 
         // Căn giữa màn hình
         frame.setLocationRelativeTo(null);
@@ -516,7 +618,7 @@ private JFrame datapathFrame;
 
     private void showHelp() {
         JOptionPane.showMessageDialog(frame,
-                "Help:\n- Assemble: Load program\n- Run: Execute all\n- Step Forward/Back: Single step\n- Restart: Reset program\n- Clear All: Clear all fields\nSupported instructions: ADD, SUB, MOVZ, AND, ORR, LDUR, STUR, ADDI, SUBI, B, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, CMP",
+                "Help:\n- Assemble: Load program\n- Run: Execute all\n- Step Forward/Back: Single step\n- Restart: Reset program\n- Clear All: Clear all fields\n- Datapath: Open datapath visualization\n  - Auto Run: Automatically execute all steps\n  - Speed control: Adjust auto-run delay\nSupported instructions: ADD, SUB, MOVZ, MOV, MOVK, AND, ORR, LDUR, STUR, ADDI, SUBI, B, EOR, MUL, SDIV, UDIV, LSL, LSR, ASR, CMP, SMULH, UMULH",
                 "Help", JOptionPane.INFORMATION_MESSAGE);
     }
 

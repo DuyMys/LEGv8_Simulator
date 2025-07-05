@@ -16,7 +16,6 @@ import core.ExecutionHistoryListener;
 import core.ExecutionState;
 import core.ExecutionHistory;
 
-
 /**
  * A JPanel that visually represents the LEGv8 datapath, drawing components with PNG images and paths with destination labels.
  * Enhanced with execution history for step-back functionality.
@@ -44,6 +43,12 @@ public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
     private Timer animationTimer; // Timer for bus label animation
     private static final int ANIMATION_DURATION = 4000; // Matches ANIMATION_DELAY
     private static final int ANIMATION_STEP_MS = 10; // Update every 10ms
+    
+    // Animation completion callback
+    private Runnable animationCompletionCallback;
+    
+    // Animation speed control
+    private int currentAnimationDuration = ANIMATION_DURATION;
 
     private final Map<BusID, String> busDestinationLabels;
     private final Map<BusID, String> busSourceLabels;
@@ -1126,7 +1131,6 @@ public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
             this.activeBuses = new ArrayList<>(activeBuses);
             this.busDataValues = new HashMap<>(busDataValues);
         }
-
         repaint();
     }
 
@@ -1134,7 +1138,7 @@ public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
         boolean animationActive = false;
         for (String busId : new ArrayList<>(busAnimationProgress.keySet())) {
             float progress = busAnimationProgress.get(busId);
-            progress += (float) ANIMATION_STEP_MS / ANIMATION_DURATION;
+            progress += (float) ANIMATION_STEP_MS / currentAnimationDuration;
             if (progress >= 1.0f) {
                 busAnimationProgress.put(busId, 1.0f);
             } else {
@@ -1144,9 +1148,30 @@ public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
         }
         if (!animationActive && animationTimer.isRunning()) {
             animationTimer.stop();
+            // Call completion callback when animation finishes
+            if (animationCompletionCallback != null) {
+                animationCompletionCallback.run();
+            }
         }
         repaint();
     }
+
+    /**
+     * Sets the callback to be called when bus animation completes
+     * @param callback The callback to run when animation finishes
+     */
+    public void setAnimationCompletionCallback(Runnable callback) {
+        this.animationCompletionCallback = callback;
+    }
+
+    /**
+     * Sets the animation speed by adjusting the duration
+     * @param speedMs Animation duration in milliseconds (lower = faster)
+     */
+    public void setAnimationSpeed(int speedMs) {
+        this.currentAnimationDuration = Math.max(100, speedMs); // Minimum 100ms for reasonable animation
+    }
+
     private Point getPositionAlongPath(List<Point> path, float progress) {
         if (path == null || path.size() < 2) return new Point(0, 0);
 
@@ -1396,4 +1421,5 @@ public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
         this.currentStepDescription = "Initial State";
         System.out.println("Execution history cleared");
     }
+
 }

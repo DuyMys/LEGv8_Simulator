@@ -109,7 +109,7 @@ public class DatapathGUI extends JPanel {
                     activeImages.put(id, img);
                     imageDimensions.put(id, new Dimension(img.getWidth(), img.getHeight()));
                 } else {
-                    System.err.println("Warning: Active image not found for " + name);
+                    // System.err.println("Warning: Active image not found for " + name);
                     imageDimensions.put(id, new Dimension(40, 40)); // Default size
                 }
             } catch (IOException e) {
@@ -126,13 +126,13 @@ public class DatapathGUI extends JPanel {
                         imageDimensions.put(id, new Dimension(img.getWidth(), img.getHeight()));
                     }
                 } else {
-                    System.err.println("Warning: Inactive image not found for " + name);
+                    // System.err.println("Warning: Inactive image not found for " + name);
                     if (!imageDimensions.containsKey(id)) {
                         imageDimensions.put(id, new Dimension(40, 40));
                     }
                 }
             } catch (IOException e) {
-                System.err.println("Error loading inactive image for " + name + ": " + e.getMessage());
+                // System.err.println("Error loading inactive image for " + name + ": " + e.getMessage());
                 if (!imageDimensions.containsKey(id)) {
                     imageDimensions.put(id, new Dimension(40, 40));
                 }
@@ -843,8 +843,8 @@ public class DatapathGUI extends JPanel {
                 g2d.fillRect(compInfo.x, compInfo.y, compInfo.width, compInfo.height);
                 g2d.setColor(Color.BLACK);
                 g2d.drawRect(compInfo.x, compInfo.y, compInfo.width, compInfo.height);
-                System.err.println("Warning: Image not found for component " + id + 
-                                   (isActive ? " (active)" : " (inactive)"));
+                // System.err.println("Warning: Image not found for component " + id + 
+                //                    (isActive ? " (active)" : " (inactive)"));
             }
 
             if (compInfo.label != null && !compInfo.label.isEmpty()) {
