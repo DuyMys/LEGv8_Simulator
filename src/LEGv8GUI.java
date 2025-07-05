@@ -214,7 +214,7 @@ private JFrame datapathFrame;
         // Memory Table with Tab Selector
         JPanel memoryPanel = new JPanel(new BorderLayout());
         memoryPanel.setBackground(BACKGROUND_COLOR);
-        String[] memoryTabs = {/*  "Data",*/ "Stack" /* , "Text"*/ };
+        String[] memoryTabs = {/*  "Data",*/ "Memory" /* , "Text"*/ };
         memoryTabSelector = new JComboBox<>(memoryTabs);
         memoryTabSelector.setSelectedIndex(0);
         memoryTabSelector.setPreferredSize(new Dimension(255, 30));
