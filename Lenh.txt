@@ -1,3 +1,4 @@
+-- Chấm . là làm rồi
 R-Format:
 ADD  Xd, Xn, Xm     // Xd = Xn + Xm
 SUB  Xd, Xn, Xm     // Xd = Xn - Xm
@@ -24,5 +25,11 @@ D-Format:
 LDUR Xt, [Xn, #offset]  .   // Load: Lấy dữ liệu từ bộ nhớ tại Xn + offset và đưa vào Xt
 STUR Xt, [Xn, #offset]  .  // Store: Lưu dữ liệu từ Xt vào bộ nhớ tại Xn + offset
 
+CB-Format:
+CBZ Xt, label   // Nhảy nếu bằng 0
+CBZN Xt, label  // Nhảy nếu != 0
+
 B-Format:
 B label  . // Nhảy luôn  
+BL label  // Nhảy gọi hàm
+RET       // Trả về
