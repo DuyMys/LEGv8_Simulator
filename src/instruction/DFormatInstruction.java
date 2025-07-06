@@ -31,7 +31,7 @@ public class DFormatInstruction extends Instruction {
     @Override
     public String disassemble() {
         String mnemonic = getDefinition().getMnemonic();
-        // Sign-extend address for display
+        // Sign-extend address for display (9-bit signed immediate)
         int displayAddr = (address & 0x100) != 0 ? (address | 0xFFFFFE00) : address;
         return String.format("%-6s X%d, [X%d, #%d]", mnemonic, rt, rn, displayAddr);
     }
