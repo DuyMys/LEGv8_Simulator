@@ -6,6 +6,7 @@ import java.util.BitSet;
  */
 public class IMFormatInstruction extends Instruction {
     private final int rd;
+    private final int rn; // Not used in MOVZ, but included for consistency with other IM instructions
     private final int immediate;
     private final int shift;
 
@@ -17,8 +18,17 @@ public class IMFormatInstruction extends Instruction {
     public IMFormatInstruction(BitSet bytecode, InstructionDefinition definition) {
         super(bytecode, definition);
         this.rd = getRd_IM();
+        this.rn = getRn_IM();
         this.immediate = getImmediate_IM();
         this.shift = getShift_IM();
+    }
+
+    /**
+     * Gets the source register (Rn) for this instruction.
+     * @return The source register number (0-31).
+     */
+    public int getRn_IM() {
+        return rn;
     }
 
     /**
