@@ -149,27 +149,29 @@ public class InstructionFactory {
                 break;
 
             case 'M':
-                // MOVZ: "Xd, #imm, LSL #shift" or MOV: "Xd, #imm"
                 if (mnemonic.equals("MOV")) {
-                    // Handle simpler MOV syntax: "MOV Xd, #imm"
+                    // MOV Xd, #imm
                     String[] movParts = operands.split(",");
                     if (movParts.length != 2 || !movParts[1].trim().startsWith("#")) {
                         System.err.printf("%sInvalid MOV instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
                         return null;
                     }
-                    parts[1] = movParts[0].trim(); // Xd
-                    parts[2] = movParts[1].trim(); // #imm
-                    parts[3] = "LSL #0"; // Default shift of 0
+                    parts[1] = movParts[0].trim();          // Xd
+                    parts[2] = movParts[1].trim();          // #imm
+                    parts[3] = "LSL #0";                    // Default shift
                 } else {
-                    // MOVZ: "Xd, #imm, LSL #shift"
-                    Pattern mPattern = Pattern.compile("(\\w+)\\s*,\\s*(#[\\d]+)\\s*,\\s*(LSL\\s*#[\\d]+)");
+                    // MOVZ Xd, #imm [, LSL #n]
+                    Pattern mPattern = Pattern.compile(
+                        "(\\w+)\\s*,\\s*(#[0-9a-fA-Fx_]+)(?:\\s*,\\s*(LSL\\s*#[\\d]+))?"
+                    );
                     Matcher mMatcher = mPattern.matcher(operands);
+
                     if (mMatcher.matches()) {
-                        parts[1] = mMatcher.group(1); // Xd
-                        parts[2] = mMatcher.group(2); // #imm
-                        parts[3] = mMatcher.group(3); // LSL #shift
+                        parts[1] = mMatcher.group(1);       // Xd
+                        parts[2] = mMatcher.group(2);       // #imm
+                        parts[3] = (mMatcher.group(3) != null) ? mMatcher.group(3) : "LSL #0"; // Optional shift
                     } else {
-                        System.err.printf("%sInvalid IM-format instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
+                        System.err.printf("%sInvalid MOVZ instruction format: %s\n", ColoredLog.WARNING, assemblyLine);
                         return null;
                     }
                 }
