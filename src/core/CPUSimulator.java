@@ -565,4 +565,22 @@ public class CPUSimulator {
         // Flag updates are handled within the micro-step actions in MicroStepManager
         // This method is kept for future extensions if needed
     }
+
+    /**
+     * Evaluates a branch condition based on current flags.
+     * @param condition The condition code (e.g., "EQ", "NE", "LT", "GT", "LE", "GE")
+     * @return true if the condition is satisfied based on current flags, false otherwise.
+     */
+    public boolean evaluateBranchCondition(String condition) {
+        switch (condition.toUpperCase()) {
+            case "EQ": return zeroFlag;
+            case "NE": return !zeroFlag;
+            case "LT": return negativeFlag != overflowFlag;
+            case "GT": return !zeroFlag && (negativeFlag == overflowFlag);
+            case "LE": return zeroFlag || (negativeFlag != overflowFlag);
+            case "GE": return negativeFlag == overflowFlag;
+            default: return false;
+        }
+    }
+
 }
