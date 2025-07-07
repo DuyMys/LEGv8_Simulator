@@ -339,11 +339,11 @@ private JFrame datapathFrame;
 
     // Create control panel with Step, Back, Auto Run, and Restart buttons
     JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-    JButton stepDatapathButton = new JButton("Step Datapath");
-    JButton backDatapathButton = new JButton("Back Datapath");
-    JButton restartDatapathButton = new JButton("Restart Datapath");
+    JButton stepDatapathButton = new JButton("Step Forward");
+    JButton backDatapathButton = new JButton("Step Backward");
+    JButton restartDatapathButton = new JButton("Restart");
     JButton autoRunButton = new JButton("Auto Run");
-    JButton stopAutoRunButton = new JButton("Stop Auto");
+    JButton stopAutoRunButton = new JButton("Pause");
     
     // Speed control for auto-run
     JLabel speedLabel = new JLabel("Speed:");
@@ -1160,7 +1160,7 @@ private JFrame datapathFrame;
 
     public static void main(String[] args) {
         InstructionConfigLoader configLoader = new InstructionConfigLoader();
-        if (!configLoader.loadConfig("D:/LEGv8_Simulator/src/instruction/instructions.txt")) {
+        if (!configLoader.loadConfig("D:/LEGv8_Simulator/LEGv8_Simulator/src/instruction/instructions.txt")) {
             System.err.println("Failed to load instructions.txt");
             return;
         }
