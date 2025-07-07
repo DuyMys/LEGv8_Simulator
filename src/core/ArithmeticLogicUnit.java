@@ -9,7 +9,7 @@ public class ArithmeticLogicUnit {
 
     // Enum để định nghĩa các phép toán của ALU một cách rõ ràng
     public enum ALUOperation {
-        ADD, SUB, AND, ORR, EOR,
+        ADD, SUB, ADDS, SUBS, AND, ORR, EOR,
         MUL, SMULH, UMULH,
         SDIV, UDIV,
         LSL, LSR, ASR,
@@ -33,7 +33,30 @@ public class ArithmeticLogicUnit {
     }
 
     // Các phép toán cần tính cờ Carry và Overflow
-    private static final EnumSet<ALUOperation> FLAG_AFFECTING_ARITHMETIC = EnumSet.of(ALUOperation.ADD, ALUOperation.SUB);
+    private static final EnumSet<ALUOperation> FLAG_AFFECTING_ARITHMETIC = EnumSet.of(ALUOperation.ADD, ALUOperation.SUB, ALUOperation.ADDS, ALUOperation.SUBS);
+
+    private boolean calculateAddOverflow(long op1, long op2, long result) {
+    boolean op1Sign = (op1 >>> 63) == 1;
+    boolean op2Sign = (op2 >>> 63) == 1;
+    boolean resultSign = (result >>> 63) == 1;
+    return (op1Sign == op2Sign) && (op1Sign != resultSign);
+   }
+
+    private boolean calculateSubOverflow(long op1, long op2, long result) {
+        boolean op1Sign = (op1 >>> 63) == 1;
+        boolean op2Sign = (op2 >>> 63) == 1;
+        boolean resultSign = (result >>> 63) == 1;
+        return (op1Sign != op2Sign) && (resultSign == op2Sign);
+    }
+
+    private boolean calculateAddCarry(long op1, long op2) {
+        return Long.compareUnsigned(op1 + op2, op1) < 0;
+    }
+
+    private boolean calculateSubCarry(long op1, long op2) {
+        return Long.compareUnsigned(op1, op2) >= 0;
+    }
+
 
     public ALUResult execute(long a, long b, ALUOperation op) {
         long result = 0;
@@ -44,6 +67,26 @@ public class ArithmeticLogicUnit {
                 break;
             case SUB:
                 result = a - b;
+                break;
+            case ADDS:
+                result = a + b;
+                // Cập nhật cờ trạng thái cho các phép toán có ảnh hưởng
+                if (op == ALUOperation.ADDS || op == ALUOperation.SUBS) {
+                    // Cờ N và Z được cập nhật trong mọi trường hợp
+                    boolean n_flag = (result < 0);
+                    boolean z_flag = (result == 0);
+                    return new ALUResult(result, n_flag, z_flag, false, false);
+                }
+                break;
+            case SUBS:
+                result = a - b;
+                // Cập nhật cờ trạng thái cho các phép toán có ảnh hưởng
+                if (op == ALUOperation.ADDS || op == ALUOperation.SUBS) {
+                    // Cờ N và Z được cập nhật trong mọi trường hợp
+                    boolean n_flag = (result < 0);
+                    boolean z_flag = (result == 0);
+                    return new ALUResult(result, n_flag, z_flag, false, false);
+                }
                 break;
             case AND:
                 result = a & b;
@@ -103,14 +146,19 @@ public class ArithmeticLogicUnit {
         if (FLAG_AFFECTING_ARITHMETIC.contains(op)) {
             if (op == ALUOperation.ADD) {
                 // Carry: xảy ra khi tổng không dấu nhỏ hơn toán hạng ban đầu
-                c_flag = Long.compareUnsigned(result, a) < 0;
+                c_flag = calculateAddCarry(a, b);
                 // Overflow: xảy ra khi dấu của 2 toán hạng giống nhau và khác dấu kết quả
-                v_flag = ((a ^ result) & (b ^ result)) < 0;
+                v_flag = calculateAddOverflow(a, b, result);
             } else if (op == ALUOperation.SUB) {
                 // Carry (not-borrow): xảy ra khi a >= b (không dấu)
-                c_flag = Long.compareUnsigned(a, b) >= 0;
+                c_flag = calculateSubCarry(a, b);
                 // Overflow: xảy ra khi dấu của a và b khác nhau, và dấu kết quả giống b
-                v_flag = ((a ^ b) & (a ^ result)) < 0;
+                v_flag = calculateSubOverflow(a, b, result);
+            }
+            else if (op == ALUOperation.ADDS || op == ALUOperation.SUBS) {
+                // Cờ Carry và Overflow được tính trong các trường hợp ADDS và SUBS
+                c_flag = (op == ALUOperation.ADDS) ? calculateAddCarry(a, b) : calculateSubCarry(a, b);
+                v_flag = (op == ALUOperation.ADDS) ? calculateAddOverflow(a, b, result) : calculateSubOverflow(a, b, result);
             }
         }
 
