@@ -461,19 +461,19 @@ public class MicroStepManager {
             new ArrayList<>(List.of(
                 BusID.INSTRUCTION_MEMORY_.name(),
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), 
-                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), 
                 BusID.INSTRUCTION_MEMORY_TO_REGISTERS_READ1.name(),   
                 BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE.name(),
                 BusID.INSTRUCTION_MEMORY_TO_MUX_reg2loc_0.name(),
-                BusID.MUX_reg2loc_TO_REGISTERS_READ2.name()            
+                BusID.MUX_reg2loc_TO_REGISTERS_READ2.name(),
+                BusID.INSTRUCTION_MEMORY_TO_ALU_CONTROL.name()            
             )),
             new HashMap<>(Map.of(
                 BusID.INSTRUCTION_MEMORY_TO_CONTROL_UNIT.name(), String.format("%11s", definition.getOpcodeId()),
-                BusID.INSTRUCTION_MEMORY_TO_SIGN_EXTEND.name(), String.format("%32s", Long.toBinaryString(0).replace(' ', '0')),
                 BusID.INSTRUCTION_MEMORY_TO_REGISTERS_READ1.name(), String.format("%5s", Integer.toBinaryString(rn & 0x1F)).replace(' ', '0'),
                 BusID.INSTRUCTION_MEMORY_TO_REGISTERS_WRITE.name(), String.format("%5s", Integer.toBinaryString(rd & 0x1F)).replace(' ', '0'),
                 BusID.INSTRUCTION_MEMORY_TO_MUX_reg2loc_0.name(), String.format("%5s", Integer.toBinaryString(rm & 0x1F)).replace(' ', '0'),
-                BusID.MUX_reg2loc_TO_REGISTERS_READ2.name(), String.valueOf(rmValue)
+                BusID.INSTRUCTION_MEMORY_TO_ALU_CONTROL.name(), String.format("%10s", generateAluControlSignal(signals.getAluOp(), definition.getOpcodeId())).replace(' ', '0'),
+                BusID.MUX_reg2loc_TO_REGISTERS_READ2.name(), String.format("%5s", Integer.toBinaryString(rm & 0x1F)).replace(' ', '0')
             )),
         null
         ));
