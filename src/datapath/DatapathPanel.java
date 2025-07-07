@@ -970,7 +970,12 @@ public class DatapathPanel extends JPanel implements ExecutionHistoryListener {
     private void drawComponent(Graphics2D g2d, ComponentInfo compInfo) {
         try {
             ComponentID id = ComponentID.valueOf(compInfo.id);
-            boolean isActive = activeComponents.contains(id.name());
+        boolean isFlagWriteActive =
+            activeBuses.contains("CONTROL_FLAGWRITE_TO_REGISTERS") &&
+            busDataValues != null &&
+            "1".equals(busDataValues.get("CONTROL_FLAGWRITE_TO_REGISTERS"));
+        boolean isActive = activeComponents.contains(id.name()) ||
+            (isFlagWriteActive && (id == ComponentID.NFLAG || id == ComponentID.ZFLAG || id == ComponentID.CFLAG || id == ComponentID.VFLAG));
             BufferedImage img = isActive ? activeImages.get(id) : inactiveImages.get(id);
 
             // if (isActive && img == null) {
