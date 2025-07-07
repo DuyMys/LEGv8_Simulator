@@ -745,6 +745,12 @@ private JFrame datapathFrame;
                     String opcode = parts[0].trim();
                     if (opcode.equals("ADD") && parts.length >= 4) {
                         meaning = parts[1].trim() + " = " + parts[2].trim() + " + " + parts[3].trim();
+                    }
+                    else if (opcode.equals("MOVK") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].replace("#", "").trim()
+                                + (parts.length > 3 ? " << " + parts[3].replace("#", "").trim() : "");
+                    } else if (opcode.equals("ADDS") && parts.length >= 4) {
+                        meaning = parts[1].trim() + " = " + parts[2].trim() + " + " + parts[3].trim();
                     } else if (opcode.equals("ADDI") && parts.length >= 4) {
                         meaning = parts[1].trim() + " = " + parts[2].trim() + " + " + parts[3].replace("#", "").trim();
                     } else if (opcode.equals("SUB") && parts.length >= 4) {
