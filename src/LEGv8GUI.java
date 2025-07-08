@@ -870,6 +870,7 @@ private JFrame datapathFrame;
     private JLabel fetchLabel;
     private JLabel decodeLabel;
     private JLabel executeLabel;
+    private JLabel memoryAccessJLabel;
     private JLabel writeBackLabel;
     private JTable codeTable;
     private CodeLineTableModel codeTableModel;
@@ -894,12 +895,15 @@ private JFrame datapathFrame;
         fetchLabel = createStepLabel("1. FETCH", "Fetch instruction from memory");
         decodeLabel = createStepLabel("2. DECODE", "Decode instruction and read registers");
         executeLabel = createStepLabel("3. EXECUTE", "Perform ALU operation or calculate address");
+        memoryAccessJLabel = createStepLabel("4. MEMORY ACCESS", "Read/write data from/to memory");
         writeBackLabel = createStepLabel("4. WRITE BACK", "Write result to register or memory");
         
         stepsPanel.add(fetchLabel);
         stepsPanel.add(decodeLabel);
         stepsPanel.add(executeLabel);
+        stepsPanel.add(memoryAccessJLabel);
         stepsPanel.add(writeBackLabel);
+        
         
         // Create code table for structured view
         codeTableModel = new CodeLineTableModel();
@@ -974,21 +978,23 @@ private JFrame datapathFrame;
 
         String currentInstruction = currentState.getLastExecutedInstruction();
 
-        // 4. Map the stage to a step number for your existing highlighter
         int stepNumber = 0;
         switch (stage) {
             case FETCH:
+        // 4. Map the stage to a step number for your existing highlighter
                 stepNumber = 1;
                 break;
             case DECODE:
                 stepNumber = 2;
                 break;
             case EXECUTE:
-            case MEMORY_ACCESS:
                 stepNumber = 3;
                 break;
-            case WRITE_BACK:
+            case MEMORY_ACCESS:
                 stepNumber = 4;
+                break;
+            case WRITE_BACK:
+                stepNumber = 5;
                 break;
             case NONE:
             default:
@@ -1008,12 +1014,12 @@ private JFrame datapathFrame;
         updateStepDetails(currentInstruction, stepNumber);
         statePanel.repaint();
     }
-
     
     private void resetStepIndicators() {
         if (fetchLabel != null) fetchLabel.setBackground(Color.LIGHT_GRAY);
         if (decodeLabel != null) decodeLabel.setBackground(Color.LIGHT_GRAY);
         if (executeLabel != null) executeLabel.setBackground(Color.LIGHT_GRAY);
+        if (memoryAccessJLabel != null) memoryAccessJLabel.setBackground(Color.LIGHT_GRAY);
         if (writeBackLabel != null) writeBackLabel.setBackground(Color.LIGHT_GRAY);
     }
     
@@ -1026,6 +1032,7 @@ private JFrame datapathFrame;
              if (fetchLabel != null) fetchLabel.setBackground(completedColor);
              if (decodeLabel != null) decodeLabel.setBackground(completedColor);
              if (executeLabel != null) executeLabel.setBackground(completedColor);
+             if (memoryAccessJLabel != null) memoryAccessJLabel.setBackground(completedColor);
              if (writeBackLabel != null) writeBackLabel.setBackground(completedColor);
              return;
         }
@@ -1043,10 +1050,17 @@ private JFrame datapathFrame;
                 if (decodeLabel != null) decodeLabel.setBackground(completedColor);
                 if (executeLabel != null) executeLabel.setBackground(activeColor);
                 break;
-            case 4: // Write Back
+            case 4: // Memory Access
                 if (fetchLabel != null) fetchLabel.setBackground(completedColor);
                 if (decodeLabel != null) decodeLabel.setBackground(completedColor);
                 if (executeLabel != null) executeLabel.setBackground(completedColor);
+                if (memoryAccessJLabel != null) memoryAccessJLabel.setBackground(activeColor);
+                break;
+            case 5: // Write Back
+                if (fetchLabel != null) fetchLabel.setBackground(completedColor);
+                if (decodeLabel != null) decodeLabel.setBackground(completedColor);
+                if (executeLabel != null) executeLabel.setBackground(completedColor);
+                if (memoryAccessJLabel != null) memoryAccessJLabel.setBackground(completedColor);
                 if (writeBackLabel != null) writeBackLabel.setBackground(activeColor);
                 break;
             default:
@@ -1166,7 +1180,7 @@ private JFrame datapathFrame;
 
     public static void main(String[] args) {
         InstructionConfigLoader configLoader = new InstructionConfigLoader();
-        if (!configLoader.loadConfig("D:/LEGv8_Simulator/src/instruction/instructions.txt")) {
+        if (!configLoader.loadConfig("D:/LEGv8_Simulator/LEGv8_Simulator/src/instruction/instructions.txt")) {
             System.err.println("Failed to load instructions.txt");
             return;
         }
