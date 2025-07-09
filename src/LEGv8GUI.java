@@ -896,7 +896,7 @@ private JFrame datapathFrame;
         decodeLabel = createStepLabel("2. DECODE", "Decode instruction and read registers");
         executeLabel = createStepLabel("3. EXECUTE", "Perform ALU operation or calculate address");
         memoryAccessJLabel = createStepLabel("4. MEMORY ACCESS", "Read/write data from/to memory");
-        writeBackLabel = createStepLabel("4. WRITE BACK", "Write result to register or memory");
+        writeBackLabel = createStepLabel("5. WRITE BACK", "Write result to register or memory");
         
         stepsPanel.add(fetchLabel);
         stepsPanel.add(decodeLabel);
@@ -1025,7 +1025,8 @@ private JFrame datapathFrame;
     
     private void updateStepIndicator(int step) {
         Color activeColor = new Color(144, 238, 144); // Light green
-        Color completedColor = new Color(173, 216, 230); // Light blue
+        // Color completedColor = new Color(173, 216, 230); // Light blue
+        Color completedColor = Color.LIGHT_GRAY;
         
         // If execution is finished, don't show any active step
         if (simulator.isFinished()) {
